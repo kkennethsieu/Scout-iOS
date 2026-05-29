@@ -1,0 +1,111 @@
+import SwiftUI
+
+struct SpotDetailScreen: View {
+    @State private var viewModel: SpotDetailViewModel
+    @State private var isSaved = false
+    @Environment(\.dismiss) private var dismiss
+
+    init(spotID: String) {
+        _viewModel = State(initialValue: SpotDetailViewModel(spotID: spotID))
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Color.sBackground.ignoresSafeArea()
+
+            switch viewModel.state {
+            case .idle, .loading:
+                SLoadingState()
+            case .failed(let message):
+                SErrorStateView(message: message) {
+                    Task { await viewModel.load() }
+                }
+            case .loaded:
+                if let detail = viewModel.detail {
+                    content(detail)
+                    leaveReviewBar
+                }
+            }
+        }
+        .toolbar(.hidden, for:.tabBar)
+        .toolbar(.hidden, for: .navigationBar)
+        .task {
+            if viewModel.state == .idle { await viewModel.load() }
+        }
+    }
+
+    // MARK: - Content
+
+    private func content(_ detail: SpotDetail) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
+                SpotDetailHero(
+                    photos: detail.heroPhotos,
+                    isSaved: $isSaved,
+                    onBack: { dismiss() },
+                    onShare: { /* TODO: share sheet */ }
+                )
+
+                VStack(alignment: .leading, spacing: Spacing.xl) {
+                    SpotTitleBlock(name: detail.name, subtitle: detail.subtitle)
+
+                    SpotStatsRow(
+                        rating: detail.avgRating.formatted(.number.precision(.fractionLength(1))),
+                        distance: viewModel.distanceText
+                    )
+
+                    SpotQuickFacts(detail: detail)
+
+                    SpotShootingTimes(times: detail.shootingTimes)
+
+                    SpotGearComposition(
+                        gearRecommendations: detail.recentGearRecommendations,
+                        compositionHints: detail.recentCompositionHints
+                    )
+
+                    SpotAccessLogistics(
+                        permitRequired: detail.modePermitRequired,
+                        droneAllowed: detail.modeDroneAllowed,
+                        tripodAllowed: detail.modeTripodAllowed
+                    )
+
+                    SpotReviewsSection(
+                        reviews: viewModel.reviews,
+                        countText: viewModel.reviewCountText,
+                        onViewAll: { /* TODO: navigate to all reviews */ }
+                    )
+                }
+                .padding(.horizontal, Spacing.lg)
+            }
+            .padding(.bottom, 96)   // room for the sticky Leave-a-review bar
+        }
+        .ignoresSafeArea(edges: .top)
+    }
+
+    // MARK: - Leave a review bar
+
+    private var leaveReviewBar: some View {
+        SPrimaryButton(title: "Leave a review", icon: "plus.circle") {
+            // TODO: present review flow
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, Spacing.md)
+        .padding(.bottom, Spacing.sm)
+        .background(.ultraThinMaterial)
+    }
+}
+
+// MARK: - Preview
+
+#Preview("Spot Detail") {
+    NavigationStack {
+        SpotDetailScreen(spotID: "1")
+    }
+}
+
+#Preview("Spot Detail — Dark") {
+    NavigationStack {
+        SpotDetailScreen(spotID: "1")
+    }
+    .preferredColorScheme(.dark)
+}
