@@ -61,6 +61,7 @@ nonisolated extension SpotSummary {
         id: String = "sample-1",
         name: String = "Cedar Cathedral",
         rating: Double = 4.9,
+        reviewCount: Int = 128,
         seed: String = "cedar"
     ) -> SpotSummary {
         SpotSummary(
@@ -72,7 +73,7 @@ nonisolated extension SpotSummary {
             adminArea: "Oregon",
             country: "USA",
             createdAt: Date(),
-            reviewCount: 128,
+            reviewCount: reviewCount,
             avgRating: rating,
             coverPhotoUrl: URL(string: "https://picsum.photos/seed/\(seed)/800/500"),
             recentReviewPhotos: [
@@ -91,10 +92,10 @@ nonisolated extension SpotSummary {
     }
 
     static let samples: [SpotSummary] = [
-        .sample(id: "1", name: "Cedar Cathedral", rating: 4.9, seed: "cedar"),
-        .sample(id: "2", name: "Mirror Reservoir", rating: 4.7, seed: "reservoir"),
-        .sample(id: "3", name: "Golden Valley Point", rating: 4.8, seed: "valley"),
-        .sample(id: "4", name: "Basalt Overlook", rating: 4.6, seed: "basalt"),
-        .sample(id: "5", name: "Tidewater Cliffs", rating: 4.5, seed: "tidewater")
+        .sample(id: "1", name: "Cedar Cathedral", rating: 4.9, reviewCount: 128, seed: "cedar"),
+        .sample(id: "2", name: "Mirror Reservoir", rating: 4.7, reviewCount: 342, seed: "reservoir"),
+        .sample(id: "3", name: "Golden Valley Point", rating: 4.8, reviewCount: 57, seed: "valley"),
+        .sample(id: "4", name: "Basalt Overlook", rating: 4.6, reviewCount: 9, seed: "basalt"),
+        .sample(id: "5", name: "Tidewater Cliffs", rating: 4.5, reviewCount: 211, seed: "tidewater")
     ]
 }

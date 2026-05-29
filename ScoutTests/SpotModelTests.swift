@@ -193,6 +193,52 @@ struct SpotModelTests {
         #expect(review.permitRequired == false)
     }
 
+    @Test func decodesPaginatedReviewsEnvelope() throws {
+        let json = """
+        {
+            "items": [
+                {
+                    "id": "r1", "spot_id": "s1", "user_id": "u1",
+                    "photo_urls": [],
+                    "overall_rating": 4,
+                    "notes": "Nice",
+                    "best_time_of_day": ["Sunrise"],
+                    "access_level": "Easy",
+                    "entrance_fee": "Free",
+                    "crowd_level": "Light",
+                    "environment": "Coast",
+                    "gear_recommendations": null,
+                    "composition_hints": null,
+                    "permit_required": false,
+                    "drone_allowed": false,
+                    "tripod_allowed": true,
+                    "created_at": "2026-05-01T12:00:00Z"
+                }
+            ],
+            "limit": 20,
+            "next_cursor": "eyJpZCI6InIxIn0="
+        }
+        """.data(using: .utf8)!
+
+        let page = try JSONDecoder.scout.decode(PaginatedReviews.self, from: json)
+
+        #expect(page.items.count == 1)
+        #expect(page.items.first?.id == "r1")
+        #expect(page.limit == 20)
+        #expect(page.nextCursor == "eyJpZCI6InIxIn0=")
+    }
+
+    @Test func decodesPaginatedReviewsWithNullCursor() throws {
+        let json = """
+        { "items": [], "limit": 20, "next_cursor": null }
+        """.data(using: .utf8)!
+
+        let page = try JSONDecoder.scout.decode(PaginatedReviews.self, from: json)
+
+        #expect(page.items.isEmpty)
+        #expect(page.nextCursor == nil)
+    }
+
     // MARK: - TimeOfDay
 
     @Test func timeOfDayParsesBackendLiterals() {

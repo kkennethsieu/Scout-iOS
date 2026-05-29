@@ -5,8 +5,8 @@ struct SpotDetailScreen: View {
     @State private var isSaved = false
     @Environment(\.dismiss) private var dismiss
 
-    init(spotID: String) {
-        _viewModel = State(initialValue: SpotDetailViewModel(spotID: spotID))
+    init(spotID: String, service: SpotService = LiveSpotService()) {
+        _viewModel = State(initialValue: SpotDetailViewModel(spotID: spotID, service: service))
     }
 
     var body: some View {
@@ -77,6 +77,7 @@ struct SpotDetailScreen: View {
                 }
                 .padding(.horizontal, Spacing.lg)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)   // anchor to scroll width
             .padding(.bottom, 96)   // room for the sticky Leave-a-review bar
         }
         .ignoresSafeArea(edges: .top)
@@ -99,13 +100,13 @@ struct SpotDetailScreen: View {
 
 #Preview("Spot Detail") {
     NavigationStack {
-        SpotDetailScreen(spotID: "1")
+        SpotDetailScreen(spotID: "1", service: MockSpotService())
     }
 }
 
 #Preview("Spot Detail — Dark") {
     NavigationStack {
-        SpotDetailScreen(spotID: "1")
+        SpotDetailScreen(spotID: "1", service: MockSpotService())
     }
     .preferredColorScheme(.dark)
 }

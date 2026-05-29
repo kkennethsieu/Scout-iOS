@@ -1,8 +1,14 @@
 import SwiftUI
 
 struct ExploreScreen: View {
-    @State private var viewModel = ExploreViewModel()
+    @State private var viewModel: ExploreViewModel
     @State private var savedSpotIDs: Set<String> = []
+    @State private var showFilters = false
+    @State private var showSort = false
+
+    init(service: SpotService = LiveSpotService()) {
+        _viewModel = State(initialValue: ExploreViewModel(service: service))
+    }
 
     var body: some View {
         NavigationStack {
@@ -11,8 +17,11 @@ struct ExploreScreen: View {
 
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
-                        ExploreSearchBar(text: $viewModel.searchText) {
-                            // TODO: present filter sheet
+                        ExploreSearchBar(
+                            text: $viewModel.searchText,
+                            activeFilterCount: viewModel.filters.activeCount
+                        ) {
+                            showFilters = true
                         }
                         ExploreFilterRow(
                             filters: ExploreViewModel.filters,
@@ -20,8 +29,11 @@ struct ExploreScreen: View {
                         ) { filter in
                             viewModel.selectedFilter = filter
                         }
-                        ExploreHeaderRow(countText: viewModel.spotCountText) {
-                            // TODO: present sort options
+                        ExploreHeaderRow(
+                            countText: viewModel.spotCountText,
+                            sortLabel: viewModel.sort.label
+                        ) {
+                            showSort = true
                         }
                         content
                     }
@@ -38,6 +50,14 @@ struct ExploreScreen: View {
             }
             .navigationDestination(for: SpotSummary.self) { spot in
                 SpotDetailScreen(spotID: spot.id)
+            }
+            .sheet(isPresented: $showFilters) {
+                ExploreFilterSheet(filters: $viewModel.filters) { candidate in
+                    viewModel.resultCount(for: candidate)
+                }
+            }
+            .sheet(isPresented: $showSort) {
+                ExploreSortSheet(selection: $viewModel.sort)
             }
             .task {
                 if viewModel.state == .idle { await viewModel.load() }
@@ -94,10 +114,10 @@ struct ExploreScreen: View {
 // MARK: - Preview
 
 #Preview("Explore") {
-    ExploreScreen()
+    ExploreScreen(service: MockSpotService())
 }
 
 #Preview("Explore — Dark") {
-    ExploreScreen()
+    ExploreScreen(service: MockSpotService())
         .preferredColorScheme(.dark)
 }

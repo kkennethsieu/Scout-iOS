@@ -16,5 +16,11 @@
 	</array>
 	<key>GIDClientID</key>
 	<string>991715986191-7fe0npl4ekultmqal0jbrlofpdl4b3la.apps.googleusercontent.com</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Allow cleartext HTTP to the local dev backend (localhost:8000). -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

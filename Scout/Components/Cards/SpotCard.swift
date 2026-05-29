@@ -58,20 +58,24 @@ struct SpotCard: View {
     }
 
     private func asyncPhoto(_ url: URL) -> some View {
-        AsyncImage(url: url) { phase in
-            switch phase {
-            case .success(let image):
-                image.resizable().scaledToFill()
-            case .failure:
-                photoPlaceholder
-            case .empty:
-                ZStack { Color.sBorderSubtle; ProgressView() }
-            @unknown default:
-                photoPlaceholder
+        // Size from a flexible Color and overlay the image, so a loaded photo's
+        // native dimensions can't drive the card wider than its container.
+        Color.sBorderSubtle
+            .overlay {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .failure:
+                        photoPlaceholder
+                    case .empty:
+                        ProgressView()
+                    @unknown default:
+                        photoPlaceholder
+                    }
+                }
             }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
+            .clipped()
     }
 
     private var photoPlaceholder: some View {
@@ -140,6 +144,9 @@ struct SpotCard: View {
             Text(spot.avgRating.formatted(.number.precision(.fractionLength(1))))
                 .font(.sHeadingS)
                 .foregroundStyle(Color.sTextPrimary)
+            Text("(\(spot.reviewCount))")
+                .font(.sBodyS)
+                .foregroundStyle(Color.sTextSecondary)
         }
     }
 

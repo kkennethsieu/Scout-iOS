@@ -7,32 +7,36 @@ struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var rows = [[LayoutSubviews.Element]]()
-        var currentRow = [LayoutSubviews.Element]()
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+
+        // The width we wrap against. On the real layout pass SwiftUI proposes a
+        // finite width; on the ideal-size pass it proposes nil/.infinity. In the
+        // latter case, fall back to the widest single item rather than the sum of
+        // all items — otherwise we'd report a giant one-row width that blows out
+        // the parent layout (content wider than the screen).
+        let maxWidth: CGFloat
+        if let proposed = proposal.width, proposed > 0, proposed != .infinity {
+            maxWidth = proposed
+        } else {
+            maxWidth = sizes.map(\.width).max() ?? 0
+        }
+
         var currentX: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if currentX + size.width > maxWidth, !currentRow.isEmpty {
-                rows.append(currentRow)
-                currentRow = []
-                currentX = 0
-            }
-            currentRow.append(subview)
-            currentX += size.width + spacing
-        }
-        if !currentRow.isEmpty { rows.append(currentRow) }
-
+        var rowHeight: CGFloat = 0
         var totalHeight: CGFloat = 0
-        for row in rows {
-            let rowHeight = row.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
-            totalHeight += rowHeight + spacing
-        }
-        totalHeight = max(0, totalHeight - spacing)
 
-        return CGSize(width: maxWidth == .infinity ? currentX : maxWidth,
-                      height: totalHeight)
+        for size in sizes {
+            if currentX + size.width > maxWidth, currentX > 0 {
+                totalHeight += rowHeight + spacing
+                currentX = 0
+                rowHeight = 0
+            }
+            currentX += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        totalHeight += rowHeight
+
+        return CGSize(width: maxWidth, height: totalHeight)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {

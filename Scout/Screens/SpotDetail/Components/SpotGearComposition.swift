@@ -8,7 +8,7 @@ struct SpotGearComposition: View {
 
     var body: some View {
         if !gearRecommendations.isEmpty || !compositionHints.isEmpty {
-            SpotDetailSection(title: "Gear & Composition") {
+            SSection(title: "Gear & Composition") {
                 VStack(spacing: Spacing.md) {
                     if !gearRecommendations.isEmpty {
                         calloutBlock(icon: "camera.aperture",

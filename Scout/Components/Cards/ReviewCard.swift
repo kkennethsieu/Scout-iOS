@@ -94,15 +94,20 @@ struct ReviewCard: View {
     private var photoGrid: some View {
         HStack(spacing: Spacing.sm) {
             ForEach(Array(review.photoUrls.prefix(2).enumerated()), id: \.offset) { _, url in
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Color.sBorderSubtle
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 150)
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                // Size each tile from a flexible Color and overlay the image, so
+                // a loaded photo's native width can't drive the row wider than
+                // the available space.
+                Color.sBorderSubtle
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 150)
+                    .overlay {
+                        AsyncImage(url: url) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Color.sBorderSubtle
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.md))
             }
         }
     }

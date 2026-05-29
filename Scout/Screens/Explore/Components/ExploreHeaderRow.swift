@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The "<count> spots" / "Spot Sort ▾" row above the feed.
+/// The "<count> spots" / "<sort> ▾" row above the feed.
 struct ExploreHeaderRow: View {
     let countText: String
+    var sortLabel: String = "Sort"
     var onTapSort: () -> Void = {}
 
     var body: some View {
@@ -15,7 +16,7 @@ struct ExploreHeaderRow: View {
 
             Button(action: onTapSort) {
                 HStack(spacing: Spacing.xs) {
-                    Text("Spot Sort")
+                    Text(sortLabel)
                         .font(.sHeadingS)
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .semibold))

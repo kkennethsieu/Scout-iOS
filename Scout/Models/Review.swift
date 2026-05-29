@@ -24,6 +24,17 @@ nonisolated struct Review: Identifiable, Decodable, Hashable {
     var times: [TimeOfDay] { bestTimeOfDay.compactMap(TimeOfDay.init(raw:)) }
 }
 
+// MARK: - Pagination
+
+/// A page of reviews. Mirrors the backend `PaginatedReviews` schema
+/// (`/spots/{id}/reviews`). `nextCursor` (from `next_cursor`) is non-nil when
+/// more pages are available — pass it back as `cursor` to fetch the next page.
+nonisolated struct PaginatedReviews: Decodable {
+    let items: [Review]
+    let limit: Int
+    let nextCursor: String?
+}
+
 // MARK: - Time of day
 
 /// Canonical shooting-time buckets with display label + SF Symbol. Raw values

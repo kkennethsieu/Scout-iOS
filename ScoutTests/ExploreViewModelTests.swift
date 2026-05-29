@@ -75,6 +75,47 @@ struct ExploreViewModelTests {
         #expect(vm.filteredSpots.count == 2)
     }
 
+    @Test func mostPopularSortOrdersByReviewCountDescending() async {
+        let service = StubSpotService(spots: [
+            .sample(id: "1", reviewCount: 57),
+            .sample(id: "2", reviewCount: 342),
+            .sample(id: "3", reviewCount: 128)
+        ])
+        let vm = ExploreViewModel(service: service)
+        await vm.load()
+
+        vm.sort = .mostPopular
+
+        #expect(vm.filteredSpots.map(\.reviewCount) == [342, 128, 57])
+    }
+
+    @Test func scoutSortPreservesServerOrder() async {
+        let service = StubSpotService(spots: [
+            .sample(id: "1", reviewCount: 57),
+            .sample(id: "2", reviewCount: 342),
+            .sample(id: "3", reviewCount: 128)
+        ])
+        let vm = ExploreViewModel(service: service)
+        await vm.load()
+
+        vm.sort = .scout
+
+        #expect(vm.filteredSpots.map(\.id) == ["1", "2", "3"])
+    }
+
+    @Test func closestSortOrdersByAscendingDistance() async {
+        let service = StubSpotService(spots: [
+            .sample(id: "a"), .sample(id: "b"), .sample(id: "c")
+        ])
+        let vm = ExploreViewModel(service: service)
+        await vm.load()
+
+        vm.sort = .closest
+        let distances = vm.filteredSpots.map { vm.distance(for: $0) }
+
+        #expect(distances == distances.sorted())
+    }
+
     @Test func spotCountTextCapsAt500Plus() async {
         let many = (0..<600).map { SpotSummary.sample(id: "\($0)") }
         let vm = ExploreViewModel(service: StubSpotService(spots: many))

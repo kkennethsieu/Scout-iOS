@@ -7,7 +7,7 @@ struct SpotShootingTimes: View {
 
     var body: some View {
         if !times.isEmpty {
-            SpotDetailSection(title: "Best Shooting Times") {
+            SSection(title: "Best Shooting Times") {
                 FlowLayout(spacing: Spacing.sm) {
                     ForEach(times, id: \.self) { time in
                         pill(time)

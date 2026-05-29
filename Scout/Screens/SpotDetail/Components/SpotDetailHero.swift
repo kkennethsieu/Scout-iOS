@@ -40,6 +40,8 @@ struct SpotDetailHero: View {
                         } placeholder: {
                             Color.sBorderSubtle
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
                         .tag(index)
                     }
                 }
@@ -47,6 +49,10 @@ struct SpotDetailHero: View {
             }
         }
         .frame(height: 320)
+        // Pin the carousel to the scroll container's width. A paged TabView has
+        // no intrinsic width, so without this it can resolve wider than the
+        // screen and drag the whole leading-aligned VStack with it.
+        .containerRelativeFrame(.horizontal)
         .clipped()
     }
 

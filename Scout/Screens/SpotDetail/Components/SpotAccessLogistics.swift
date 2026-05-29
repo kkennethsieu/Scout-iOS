@@ -13,7 +13,7 @@ struct SpotAccessLogistics: View {
 
     var body: some View {
         if hasAny {
-            SpotDetailSection(title: "Access & Logistics") {
+            SSection(title: "Access & Logistics") {
                 VStack(spacing: Spacing.sm) {
                     row(icon: "doc.text", label: "Permit Required", value: permitRequired)
                     row(icon: "airplane", label: "Drone Allowed", value: droneAllowed)

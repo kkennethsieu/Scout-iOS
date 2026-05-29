@@ -3,6 +3,7 @@ import SwiftUI
 /// Pill search field with a trailing filter button, for the top of Explore.
 struct ExploreSearchBar: View {
     @Binding var text: String
+    var activeFilterCount: Int = 0
     var onTapFilter: () -> Void = {}
 
     var body: some View {
@@ -35,6 +36,16 @@ struct ExploreSearchBar: View {
                     .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(Color.sTextPrimary)
                     .frame(width: 44, height: 44)
+                    .overlay(alignment: .topTrailing) {
+                        if activeFilterCount > 0 {
+                            Text("\(activeFilterCount)")
+                                .font(.sCaption)
+                                .foregroundStyle(.white)
+                                .frame(minWidth: 18, minHeight: 18)
+                                .background(Circle().fill(Color.sAccent))
+                                .offset(x: -2, y: 4)
+                        }
+                    }
             }
         }
     }

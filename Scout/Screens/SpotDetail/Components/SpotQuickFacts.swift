@@ -10,7 +10,7 @@ struct SpotQuickFacts: View {
     ]
 
     var body: some View {
-        SpotDetailSection(title: "Quick Facts") {
+        SSection(title: "Quick Facts") {
             LazyVGrid(columns: columns, spacing: Spacing.md) {
                 factPill(icon: "info.circle", value: detail.modeAccessLevel, label: "Access")
                 factPill(icon: "mountain.2", value: detail.modeEnvironment, label: "Environment")
