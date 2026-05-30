@@ -1,41 +1,52 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @State private var selectedTab = 0
-    
+    @State private var selection: MainTab = .explore
+    @State private var showCreateSheet = false
+    @State private var tabBarVisibility = TabBarVisibility()
+
     var body: some View {
-        TabView(selection: $selectedTab) {
-            ExploreScreen()
-                .tabItem {
-                    Label("Explore", systemImage: "square.grid.2x2")
+        content
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if !tabBarVisibility.isHidden {
+                    STabBar(selection: $selection) {
+                        showCreateSheet = true
+                    }
+                    .transition(.move(edge: .bottom))
                 }
-                .tag(0)
-            
-            MapView()
-                .tabItem {
-                    Label("Map", systemImage: "map")
-                }
-                .tag(1)
-            
-            CreateView()
-                .tabItem {
-                    Label("Create", systemImage: "plus.circle.fill")
-                }
-                .tag(2)
-            
-            SavedView()
-                .tabItem {
-                    Label("Saved", systemImage: "bookmark")
-                }
-                .tag(3)
-            
-            ProfileView()
-                .tabItem {
-                    Label("Profile", systemImage: "person")
-                }
-                .tag(4)
+            }
+            .animation(.easeInOut(duration: 0.1), value: tabBarVisibility.isHidden)
+            .environment(tabBarVisibility)
+            .sheet(isPresented: $showCreateSheet) {
+                ShareSpotSheet(
+                    onUploadPhotos: {
+                        // TODO: present photo-upload review flow
+                    },
+                    onCurrentLocation: {
+                        // TODO: present Confirm Location / precise pin flow
+                    }
+                )
+            }
+    }
+
+    /// All tabs stay instantiated and are shown/hidden by opacity so their state
+    /// (scroll position, loaded data, navigation stack) survives switching — the
+    /// behaviour the native `TabView` gave us for free.
+    private var content: some View {
+        ZStack {
+            tabContent(.explore) { ExploreScreen() }
+            tabContent(.map) { MapView() }
+            tabContent(.saved) { SavedView() }
+            tabContent(.profile) { ProfileView() }
         }
-        .tint(Color.sAccent)
+    }
+
+    @ViewBuilder
+    private func tabContent<V: View>(_ tab: MainTab, @ViewBuilder _ view: () -> V) -> some View {
+        view()
+            .opacity(selection == tab ? 1 : 0)
+            .allowsHitTesting(selection == tab)
+            .zIndex(selection == tab ? 1 : 0)
     }
 }
 
@@ -49,18 +60,6 @@ struct MapView: View {
                 Text("Map").font(.sHeadingM).foregroundStyle(Color.sTextPrimary)
             }
             .navigationTitle("Map")
-        }
-    }
-}
-
-struct CreateView: View {
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.sBackground.ignoresSafeArea()
-                Text("Create").font(.sHeadingM).foregroundStyle(Color.sTextPrimary)
-            }
-            .navigationTitle("Create")
         }
     }
 }

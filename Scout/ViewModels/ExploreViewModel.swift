@@ -27,7 +27,7 @@ final class ExploreViewModel {
 
     private let service: SpotService
 
-    init(service: SpotService = LiveSpotService()) {
+    init(service: SpotService = AppServices.spot) {
         self.service = service
     }
 

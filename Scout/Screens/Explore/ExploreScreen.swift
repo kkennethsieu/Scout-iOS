@@ -6,7 +6,7 @@ struct ExploreScreen: View {
     @State private var showFilters = false
     @State private var showSort = false
 
-    init(service: SpotService = LiveSpotService()) {
+    init(service: SpotService = AppServices.spot) {
         _viewModel = State(initialValue: ExploreViewModel(service: service))
     }
 
@@ -17,7 +17,7 @@ struct ExploreScreen: View {
 
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
-                        ExploreSearchBar(
+                        SSearchBar(
                             text: $viewModel.searchText,
                             activeFilterCount: viewModel.filters.activeCount
                         ) {

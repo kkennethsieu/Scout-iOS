@@ -4,8 +4,10 @@ struct SpotDetailScreen: View {
     @State private var viewModel: SpotDetailViewModel
     @State private var isSaved = false
     @Environment(\.dismiss) private var dismiss
+    /// Optional so previews (which don't inject it) don't crash.
+    @Environment(TabBarVisibility.self) private var tabBarVisibility: TabBarVisibility?
 
-    init(spotID: String, service: SpotService = LiveSpotService()) {
+    init(spotID: String, service: SpotService = AppServices.spot) {
         _viewModel = State(initialValue: SpotDetailViewModel(spotID: spotID, service: service))
     }
 
@@ -27,8 +29,9 @@ struct SpotDetailScreen: View {
                 }
             }
         }
-        .toolbar(.hidden, for:.tabBar)
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear { tabBarVisibility?.isHidden = true }
+        .onDisappear { tabBarVisibility?.isHidden = false }
         .task {
             if viewModel.state == .idle { await viewModel.load() }
         }

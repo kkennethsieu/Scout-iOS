@@ -62,13 +62,15 @@ nonisolated extension SpotSummary {
         name: String = "Cedar Cathedral",
         rating: Double = 4.9,
         reviewCount: Int = 128,
+        lat: Double = 45.51,
+        lng: Double = -122.68,
         seed: String = "cedar"
     ) -> SpotSummary {
         SpotSummary(
             id: id,
             name: name,
-            publicLat: 45.51,
-            publicLng: -122.68,
+            publicLat: lat,
+            publicLng: lng,
             city: "Portland",
             adminArea: "Oregon",
             country: "USA",
@@ -92,10 +94,10 @@ nonisolated extension SpotSummary {
     }
 
     static let samples: [SpotSummary] = [
-        .sample(id: "1", name: "Cedar Cathedral", rating: 4.9, reviewCount: 128, seed: "cedar"),
-        .sample(id: "2", name: "Mirror Reservoir", rating: 4.7, reviewCount: 342, seed: "reservoir"),
-        .sample(id: "3", name: "Golden Valley Point", rating: 4.8, reviewCount: 57, seed: "valley"),
-        .sample(id: "4", name: "Basalt Overlook", rating: 4.6, reviewCount: 9, seed: "basalt"),
-        .sample(id: "5", name: "Tidewater Cliffs", rating: 4.5, reviewCount: 211, seed: "tidewater")
+        .sample(id: "1", name: "Cedar Cathedral", rating: 4.9, reviewCount: 128, lat: 45.515, lng: -122.680, seed: "cedar"),
+        .sample(id: "2", name: "Mirror Reservoir", rating: 4.7, reviewCount: 342, lat: 45.532, lng: -122.655, seed: "reservoir"),
+        .sample(id: "3", name: "Golden Valley Point", rating: 4.8, reviewCount: 57, lat: 45.498, lng: -122.702, seed: "valley"),
+        .sample(id: "4", name: "Basalt Overlook", rating: 4.6, reviewCount: 9, lat: 45.540, lng: -122.710, seed: "basalt"),
+        .sample(id: "5", name: "Tidewater Cliffs", rating: 4.5, reviewCount: 211, lat: 45.486, lng: -122.640, seed: "tidewater")
     ]
 }

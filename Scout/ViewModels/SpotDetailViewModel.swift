@@ -22,7 +22,7 @@ final class SpotDetailViewModel {
 
     private let service: SpotService
 
-    init(spotID: String, service: SpotService = LiveSpotService()) {
+    init(spotID: String, service: SpotService = AppServices.spot) {
         self.spotID = spotID
         self.service = service
     }
