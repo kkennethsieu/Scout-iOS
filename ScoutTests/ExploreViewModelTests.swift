@@ -10,7 +10,7 @@ private struct StubSpotService: SpotService {
     var reviews: [Review] = []
     var error: Error?
 
-    func fetchSpots() async throws -> [SpotSummary] {
+    func fetchSpots(near region: SpotRegion?) async throws -> [SpotSummary] {
         if let error { throw error }
         return spots
     }

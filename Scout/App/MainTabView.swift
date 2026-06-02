@@ -7,7 +7,7 @@ struct MainTabView: View {
 
     var body: some View {
         content
-            .safeAreaInset(edge: .bottom, spacing: 0) {
+            .safeAreaInset(edge: .bottom, spacing: 10) {
                 if !tabBarVisibility.isHidden {
                     STabBar(selection: $selection) {
                         showCreateSheet = true
@@ -17,16 +17,7 @@ struct MainTabView: View {
             }
             .animation(.easeInOut(duration: 0.1), value: tabBarVisibility.isHidden)
             .environment(tabBarVisibility)
-            .sheet(isPresented: $showCreateSheet) {
-                ShareSpotSheet(
-                    onUploadPhotos: {
-                        // TODO: present photo-upload review flow
-                    },
-                    onCurrentLocation: {
-                        // TODO: present Confirm Location / precise pin flow
-                    }
-                )
-            }
+            .modifier(CreateSpotFlow(isPresented: $showCreateSheet))
     }
 
     /// All tabs stay instantiated and are shown/hidden by opacity so their state
@@ -35,7 +26,7 @@ struct MainTabView: View {
     private var content: some View {
         ZStack {
             tabContent(.explore) { ExploreScreen() }
-            tabContent(.map) { MapView() }
+            tabContent(.map) { MapScreen() }
             tabContent(.saved) { SavedView() }
             tabContent(.profile) { ProfileView() }
         }
@@ -51,18 +42,6 @@ struct MainTabView: View {
 }
 
 // MARK: - Placeholder Views
-
-struct MapView: View {
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.sBackground.ignoresSafeArea()
-                Text("Map").font(.sHeadingM).foregroundStyle(Color.sTextPrimary)
-            }
-            .navigationTitle("Map")
-        }
-    }
-}
 
 struct SavedView: View {
     var body: some View {

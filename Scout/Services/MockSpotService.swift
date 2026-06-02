@@ -4,9 +4,18 @@ import Foundation
 /// implementation can be dropped in later without touching the views — they
 /// depend on this protocol, not on URLSession.
 nonisolated protocol SpotService {
-    func fetchSpots() async throws -> [SpotSummary]
+    /// Fetches spots near `region`. Pass `nil` to use the service's default
+    /// query window (used by the Explore feed, which isn't map-driven yet).
+    func fetchSpots(near region: SpotRegion?) async throws -> [SpotSummary]
     func fetchSpotDetail(id: String) async throws -> SpotDetail
     func fetchReviews(spotID: String) async throws -> [Review]
+}
+
+extension SpotService {
+    /// Convenience for callers that don't care about a specific area.
+    func fetchSpots() async throws -> [SpotSummary] {
+        try await fetchSpots(near: nil)
+    }
 }
 
 /// Hardcoded data for development. Swap for a real `URLSession`-backed service
@@ -14,7 +23,7 @@ nonisolated protocol SpotService {
 nonisolated struct MockSpotService: SpotService {
     var delay: Duration = .milliseconds(400)
 
-    func fetchSpots() async throws -> [SpotSummary] {
+    func fetchSpots(near region: SpotRegion?) async throws -> [SpotSummary] {
         try await Task.sleep(for: delay)   // simulate network latency
         return SpotSummary.samples
     }

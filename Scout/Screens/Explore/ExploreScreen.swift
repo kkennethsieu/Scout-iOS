@@ -48,6 +48,8 @@ struct ExploreScreen: View {
                 }
                 .padding(Spacing.lg)
             }
+            .padding(.bottom, Spacing.xxl)
+            .padding(.bottom, Spacing.xl)
             .navigationDestination(for: SpotSummary.self) { spot in
                 SpotDetailScreen(spotID: spot.id)
             }

@@ -21,11 +21,16 @@ nonisolated struct LiveSpotService: SpotService {
     var radiusKm: Double = 50
     var limit: Int = 20
 
-    func fetchSpots() async throws -> [SpotSummary] {
-        try await get("spots", query: [
-            "lat": "\(latitude)",
-            "lng": "\(longitude)",
-            "radius_km": "\(radiusKm)",
+    func fetchSpots(near region: SpotRegion?) async throws -> [SpotSummary] {
+        // Use the requested map area if given; otherwise fall back to the
+        // service's default center + radius.
+        let area = region ?? SpotRegion(latitude: latitude,
+                                        longitude: longitude,
+                                        radiusKm: radiusKm)
+        return try await get("spots", query: [
+            "lat": "\(area.latitude)",
+            "lng": "\(area.longitude)",
+            "radius_km": "\(area.radiusKm)",
             "limit": "\(limit)"
         ])
     }

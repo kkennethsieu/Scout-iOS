@@ -22,5 +22,7 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Scout uses your location to show nearby photo spots and center the map on you.</string>
 </dict>
 </plist>
