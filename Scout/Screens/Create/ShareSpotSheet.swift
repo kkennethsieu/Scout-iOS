@@ -1,15 +1,14 @@
 import SwiftUI
 import PhotosUI
 
-/// Root step of the create flow: choose to upload a photo (read EXIF) or use the
-/// current location. Presentation-only — the parent `CreateSpotFlow` owns the
-/// sheet chrome and navigation; this view just reports the user's choice.
+/// Create-spot entry sheet: choose to upload a photo or use the current
+/// location. Self-contained (owns its header + detents); reports the user's
+/// choice via callbacks. The downstream flow is being rebuilt.
 struct ShareSpotSheet: View {
-    /// Hands the picked image's raw data to the flow (which reads EXIF). Async
-    /// so the loading overlay covers the whole pick → lookup round trip.
-    var onUploadPhotos: (Data) async -> Void = { _ in }
+    /// The user picked a photo (raw image data).
+    var onPhotoPicked: (Data) -> Void = { _ in }
     /// The user chose "use my current location".
-    var onCurrentLocation: () -> Void = {}
+    var onUseCurrentLocation: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
     @State private var showPhotoPicker = false
@@ -18,12 +17,14 @@ struct ShareSpotSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            SSheetHeader(title: "Share Spot") { dismiss() }
+
             VStack(spacing: Spacing.md) {
                 RecommendedOption {
                     showPhotoPicker = true
                 }
                 CurrentLocationOption {
-                    onCurrentLocation()
+                    onUseCurrentLocation()
                 }
             }
             .padding(.horizontal, Spacing.lg)
@@ -31,7 +32,6 @@ struct ShareSpotSheet: View {
 
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
         .background(Color.sBackground)
         .overlay {
             if isLoadingPhoto {
@@ -41,14 +41,9 @@ struct ShareSpotSheet: View {
                     .background(.ultraThinMaterial)
             }
         }
-        .navigationTitle("Share Spot")
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
-                }
-            }
-        }
+        .presentationDetents([.height(420)])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(Radius.xl)
         .photosPicker(isPresented: $showPhotoPicker,
                       selection: $pickedItem,
                       matching: .images,
@@ -59,7 +54,7 @@ struct ShareSpotSheet: View {
         }
     }
 
-    /// Loads the chosen photo as raw `Data`, then forwards it to the flow.
+    /// Loads the chosen photo as raw `Data`, then reports it.
     private func load(_ item: PhotosPickerItem) async {
         isLoadingPhoto = true
         defer {
@@ -67,21 +62,23 @@ struct ShareSpotSheet: View {
             pickedItem = nil   // allow re-picking the same asset next time
         }
         guard let data = try? await item.loadTransferable(type: Data.self) else { return }
-        await onUploadPhotos(data)
+        onPhotoPicked(data)
     }
 }
 
 // MARK: - Preview
 
 #Preview("Share Spot") {
-    NavigationStack {
-        ShareSpotSheet()
-    }
+    Color.sBackground
+        .sheet(isPresented: .constant(true)) {
+            ShareSpotSheet()
+        }
 }
 
 #Preview("Share Spot — Dark") {
-    NavigationStack {
-        ShareSpotSheet()
-    }
-    .preferredColorScheme(.dark)
+    Color.sBackground
+        .sheet(isPresented: .constant(true)) {
+            ShareSpotSheet()
+        }
+        .preferredColorScheme(.dark)
 }

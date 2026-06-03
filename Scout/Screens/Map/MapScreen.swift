@@ -34,7 +34,7 @@ struct MapScreen: View {
 
                 overlay
 
-                recenterButton
+                controlButtons
             }
             .navigationDestination(for: SpotSummary.self) { spot in
                 SpotDetailScreen(spotID: spot.id)
@@ -107,14 +107,19 @@ struct MapScreen: View {
         .animation(.spring(duration: 0.3), value: viewModel.selectedSpotID)
     }
 
-    // MARK: - Recenter button
+    // MARK: - Control Buttons
 
-    private var recenterButton: some View {
-        VStack {
+    private var controlButtons: some View {
+        let isDenied = location.authorizationStatus == .denied
+            || location.authorizationStatus == .restricted
+        return VStack {
             Spacer()
             HStack {
                 Spacer()
-                MapRecenterButton(status: location.authorizationStatus) {
+                MapControlButton(
+                    systemImage: isDenied ? "location.slash" : "location.fill",
+                    tint: isDenied ? Color.sTextSecondary : Color.sAccent
+                ) {
                     if let coordinate = location.coordinate {
                         viewModel.recenter(on: coordinate)
                     } else {
@@ -130,85 +135,8 @@ struct MapScreen: View {
     }
 }
 
-// MARK: - User location dot
-
-/// The "you are here" marker. Brand-accent dot with a soft accuracy halo.
-private struct UserLocationDot: View {
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(Color.sAccent.opacity(0.18))
-                .frame(width: 30, height: 30)
-            Circle()
-                .fill(Color.sAccent)
-                .frame(width: 16, height: 16)
-                .overlay(Circle().stroke(.white, lineWidth: 2.5))
-                .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
-        }
-    }
-}
-
-// MARK: - Recenter button
-
-/// Floating map control that snaps the camera back to the user's location.
-private struct MapRecenterButton: View {
-    var status: CLAuthorizationStatus
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: glyph)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(isDenied ? Color.sTextSecondary : Color.sAccent)
-                .frame(width: 46, height: 46)
-                .background(.regularMaterial, in: Circle())
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var isDenied: Bool {
-        status == .denied || status == .restricted
-    }
-
-    private var glyph: String {
-        isDenied ? "location.slash" : "location.fill"
-    }
-}
-
-// MARK: - Search this area button
-
-/// Floating pill that re-queries the backend for the currently visible map area.
-private struct SearchAreaButton: View {
-    var isLoading: Bool
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: Spacing.xs) {
-                if isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(.white)
-                } else {
-                    Image(systemName: "arrow.clockwise")
-                }
-                Text("Search this area")
-            }
-            .font(.sHeadingS)
-            .foregroundStyle(.white)
-            .padding(.horizontal, Spacing.lg)
-            .padding(.vertical, Spacing.sm)
-            .background(Capsule().fill(Color.sAccent))
-            .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
-        }
-        .buttonStyle(.plain)
-        .disabled(isLoading)
-    }
-}
-
 // MARK: - Preview
 
-#Preview("Map") {
+#Preview("MapScreen") {
     MapScreen(service: MockSpotService())
 }
