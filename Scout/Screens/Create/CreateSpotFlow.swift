@@ -18,6 +18,7 @@ struct CreateSpotFlow: ViewModifier {
     private struct MapRoute: Identifiable {
         let id = UUID()
         let entry: CreateMapViewModel.Entry
+        var photoData: Data?
     }
 
     /// Captured on the user's choice; the map is presented from the entry
@@ -33,9 +34,8 @@ struct CreateSpotFlow: ViewModifier {
             .sheet(isPresented: $isPresented, onDismiss: presentMapIfPending) {
                 ShareSpotSheet(
                     onPhotoPicked: { data in
-                        // TODO: thread a thumbnail through to CreateMapScreen.
                         let metadata = PhotoMetadata(data: data)
-                        choose(.photo(metadata.coordinate))
+                        choose(.photo(metadata.coordinate), photoData: data)
                     },
                     onUseCurrentLocation: {
                         // Centre the map on the current location (synchronous in
@@ -47,14 +47,14 @@ struct CreateSpotFlow: ViewModifier {
                 .onAppear { location.start() }
             }
             .fullScreenCover(item: $route) { route in
-                CreateMapScreen(entry: route.entry)
+                CreateMapScreen(entry: route.entry, photoData: route.photoData)
             }
     }
 
     /// Records the choice and dismisses the entry sheet; the map opens once the
     /// sheet is fully dismissed (see `presentMapIfPending`).
-    private func choose(_ entry: CreateMapViewModel.Entry) {
-        pending = MapRoute(entry: entry)
+    private func choose(_ entry: CreateMapViewModel.Entry, photoData: Data? = nil) {
+        pending = MapRoute(entry: entry, photoData: photoData)
         isPresented = false
         // TODO: if photo had no GPS *and* location permission is denied, route
         // to LocationErrorSheet instead of the map.

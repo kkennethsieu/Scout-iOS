@@ -94,6 +94,10 @@ final class MapViewModel {
             await self.performAreaSearch(area)
         }
     }
+    
+    func dismissError() {
+        state = .loaded
+    }
 
     private func performAreaSearch(_ area: SpotRegion) async {
         isSearchingArea = true

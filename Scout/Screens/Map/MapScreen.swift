@@ -79,7 +79,7 @@ struct MapScreen: View {
         case .idle, .loading:
             SLoadingState()
         case .failed(let message):
-            SErrorStateView(message: message) {
+            SErrorStateView(message: message){
                 Task { await viewModel.load() }
             }
             .padding(Spacing.lg)

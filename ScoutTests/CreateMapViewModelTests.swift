@@ -80,6 +80,26 @@ struct CreateMapViewModelTests {
         #expect(CreateMapViewModel.queryRadiusMeters(for: region) == CreateMapViewModel.maxNearbyRadiusMeters)
     }
 
+    // MARK: - Name Picker place suggestions
+
+    @Test func topPlaceNamesDedupesPreservingOrder() {
+        let names = ["Muir Woods", "Bixby Creek Bridge", "Muir Woods", "Pfeiffer Beach"]
+        #expect(CreateMapViewModel.topPlaceNames(names) ==
+                ["Muir Woods", "Bixby Creek Bridge", "Pfeiffer Beach"])
+    }
+
+    @Test func topPlaceNamesCapsAtLimit() {
+        let names = (1...10).map { "Place \($0)" }
+        #expect(CreateMapViewModel.topPlaceNames(names).count == 5)
+        #expect(CreateMapViewModel.topPlaceNames(names, limit: 3) == ["Place 1", "Place 2", "Place 3"])
+    }
+
+    @Test func topPlaceNamesEmptyStaysEmpty() {
+        #expect(CreateMapViewModel.topPlaceNames([]).isEmpty)
+    }
+
+    // MARK: - Radius scaling
+
     @Test func queryRadiusScalesBetweenClamps() {
         let small = MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 46.55, longitude: 8.56),

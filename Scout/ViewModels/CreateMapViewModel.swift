@@ -56,6 +56,9 @@ final class CreateMapViewModel {
     private(set) var nearbySpots: [SpotSummary] = []
     var selectedSpotID: String?
     private(set) var regionText: String = "Locating…"
+    /// Names of real-world places near the pin (from MapKit, not the spots DB) —
+    /// suggestions for naming a brand-new spot in the Name Picker.
+    private(set) var nearbyPlaceNames: [String] = []
     var isHybrid = false
     let banner: Banner
     /// True when there's no usable starting coordinate yet, so we should adopt
@@ -80,6 +83,7 @@ final class CreateMapViewModel {
     private var adoptedCurrentLocation = false
     private var nearbyTask: Task<Void, Never>?
     private var geocodeTask: Task<Void, Never>?
+    private var placesTask: Task<Void, Never>?
 
     // MARK: - Init
 
@@ -162,11 +166,30 @@ final class CreateMapViewModel {
                            longitudinalMeters: defaultSpanMeters)
     }
 
+    /// Name-Picker suggestions from raw POI names: dedupes (preserving order)
+    /// and caps the count.
+    nonisolated static func topPlaceNames(_ names: [String], limit: Int = 5) -> [String] {
+        var seen = Set<String>()
+        return names.filter { seen.insert($0).inserted }.prefix(limit).map { $0 }
+    }
+
     // MARK: - Lifecycle
 
     func start() {
         queryNearby(force: true)
         scheduleReverseGeocode()
+    }
+
+    /// Fetches nearby real-world place names for the Name Picker. Called only
+    /// when the user chooses "continue with a new spot" — not needed when they
+    /// tap an existing spot (no Name Picker in that path).
+    func loadNearbyPlaces() {
+        placesTask?.cancel()
+        let target = pinCoordinate
+        let radius = currentRadiusMeters
+        placesTask = Task { [weak self] in
+            await self?.fetchNearbyPlaces(around: target, radiusMeters: radius)
+        }
     }
 
     /// Adopt the device's current location — only for the no-photo-location
@@ -265,6 +288,32 @@ final class CreateMapViewModel {
             regionText = text
         }
     }
+
+    // MARK: - Nearby places (Name Picker)
+
+    private func fetchNearbyPlaces(around coordinate: CLLocationCoordinate2D,
+                                   radiusMeters: Double) async {
+        let request = MKLocalPointsOfInterestRequest(center: coordinate, radius: radiusMeters)
+        request.pointOfInterestFilter = MKPointOfInterestFilter(including: Self.photoWorthyCategories)
+
+        let response = try? await MKLocalSearch(request: request).start()
+        guard !Task.isCancelled, let response else { return }
+
+        nearbyPlaceNames = Self.topPlaceNames(response.mapItems.compactMap(\.name))
+    }
+    
+    private static let photoWorthyCategories: [MKPointOfInterestCategory] = {
+        var c: [MKPointOfInterestCategory] = [
+            .park, .nationalPark, .beach, .campground,
+            .museum, .zoo, .aquarium, .amusementPark, .marina,
+            
+        ]
+        if #available(iOS 18.0, *) {
+            c += [.landmark, .nationalMonument, .castle, .fortress]
+        }
+        return c
+    }()
+    
 }
 
 // MARK: - Distance helper

@@ -7,16 +7,20 @@ import MapKit
 ///
 /// Not wired — the CTA branches are `// TODO` stubs.
 struct CreateMapScreen: View {
-    var photoURL: URL?
+    let photoData: Data?
 
     @State private var viewModel: CreateMapViewModel
     @State private var location = LocationManager()
+    /// Decoded once from `photoData` so panning (which re-renders) doesn't
+    /// re-decode the full-size photo every frame.
+    @State private var thumbnail: Image?
+    @State private var showNameSpot = false
     @Environment(\.dismiss) private var dismiss
 
     init(entry: CreateMapViewModel.Entry,
-         photoURL: URL? = nil,
+         photoData: Data? = nil,
          service: SpotService = AppServices.spot) {
-        self.photoURL = photoURL
+        self.photoData = photoData
         _viewModel = State(initialValue: CreateMapViewModel(entry: entry, service: service))
     }
 
@@ -33,12 +37,26 @@ struct CreateMapScreen: View {
         .onAppear {
             viewModel.start()
             location.start()
+            if thumbnail == nil, let photoData {
+                thumbnail = Image(data: photoData)
+            }
         }
         // Adopt the device location once, only in the no-photo-location fallback.
         .onChange(of: location.coordinate?.latitude) { _, _ in
             if let coordinate = location.coordinate {
                 viewModel.useCurrentLocation(coordinate)
             }
+        }
+        .sheet(isPresented: $showNameSpot) {
+            NameSpotSheet(
+                placeNames: viewModel.nearbyPlaceNames,
+                onSelect: { _ in
+                    // TODO: open the Review form pre-filled with the chosen name
+                },
+                onNameMyself: {
+                    // TODO: open the Review form with a blank name
+                }
+            )
         }
     }
 
@@ -166,15 +184,10 @@ struct CreateMapScreen: View {
 
     @ViewBuilder
     private var photoThumbnail: some View {
-        if let photoURL {
-            Color.sBorderSubtle
-                .overlay {
-                    AsyncImage(url: photoURL) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        Image(systemName: "photo").foregroundStyle(Color.sTextTertiary)
-                    }
-                }
+        if let thumbnail {
+            thumbnail
+                .resizable()
+                .scaledToFill()
                 .frame(width: 72, height: 72)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                 .overlay(
@@ -213,7 +226,8 @@ struct CreateMapScreen: View {
                 if viewModel.selectedSpot != nil {
                     // TODO: open the Review form for the selected existing spot
                 } else {
-                    // TODO: open the Name Picker for a new spot
+                    viewModel.loadNearbyPlaces()   // fetch only when needed
+                    showNameSpot = true            // Confirm New → Name Picker
                 }
             }
         }
@@ -232,7 +246,6 @@ struct CreateMapScreen: View {
 #Preview("Create Map — photo location") {
     CreateMapScreen(
         entry: .photo(CLLocationCoordinate2D(latitude: 45.5152, longitude: -122.6784)),
-        photoURL: URL(string: "https://picsum.photos/seed/emerald/300/300"),
         service: MockSpotService()
     )
 }
