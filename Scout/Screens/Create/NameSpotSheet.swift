@@ -1,15 +1,21 @@
 import SwiftUI
 
 /// "Name Picker" step of the create flow: after a photo/location is placed, the
-/// user picks one of the nearby places to name the spot, or names it themselves.
-///
-/// Not wired yet — defaults to sample places and the actions are stubs.
+/// user picks one of the nearby places to name the spot, or names it themselves
+/// via the inline field. Either path produces a non-empty, trimmed name through
+/// the single `onSelect` callback.
 struct NameSpotSheet: View {
     var placeNames: [String] = ["The Emerald Basin", "Bixby Creek Bridge", "Muir Woods"]
     var onSelect: (String) -> Void = { _ in }
-    var onNameMyself: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
+    @State private var isNaming = false
+    @State private var customName = ""
+    @FocusState private var nameFieldFocused: Bool
+
+    private var trimmedCustomName: String {
+        customName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -58,8 +64,7 @@ struct NameSpotSheet: View {
 
     private func placeRow(_ name: String) -> some View {
         Button {
-            dismiss()
-            onSelect(name)
+            commit(name)
         } label: {
             HStack(spacing: Spacing.md) {
                 placeIcon
@@ -79,37 +84,82 @@ struct NameSpotSheet: View {
         .accessibilityAddTraits(.isButton)
     }
 
+    /// Collapsed: a tappable "Name it myself" row. Expanded: an inline text field
+    /// + confirm, so a non-empty name is collected before `onSelect` fires.
+    @ViewBuilder
     private var nameMyselfRow: some View {
-        Button {
-            dismiss()
-            onNameMyself()
-        } label: {
+        if isNaming {
             HStack(spacing: Spacing.md) {
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(Color.sTextPrimary)
-                    .frame(width: 56, height: 56)
-                Text("Name it myself")
+                rowGlyph("pencil")
+
+                TextField("Name your spot", text: $customName)
                     .font(.sHeadingM)
                     .foregroundStyle(Color.sTextPrimary)
-                Spacer(minLength: Spacing.sm)
-                chevron
+                    .tint(Color.sAccent)
+                    .textInputAutocapitalization(.words)
+                    .submitLabel(.done)
+                    .focused($nameFieldFocused)
+                    .onChange(of: customName) { _, newValue in
+                        if newValue.count > CreateReviewViewModel.maxNameLength {
+                            customName = String(newValue.prefix(CreateReviewViewModel.maxNameLength))
+                        }
+                    }
+                    .onSubmit(confirmCustomName)
+
+                Button(action: confirmCustomName) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 26))
+                        .foregroundStyle(trimmedCustomName.isEmpty ? Color.sTextTertiary : Color.sAccent)
+                }
+                .buttonStyle(.plain)
+                .disabled(trimmedCustomName.isEmpty)
+                .accessibilityLabel("Use this name")
             }
             .padding(.vertical, Spacing.md)
-            .contentShape(Rectangle())
+        } else {
+            Button {
+                isNaming = true
+                nameFieldFocused = true
+            } label: {
+                HStack(spacing: Spacing.md) {
+                    rowGlyph("plus")
+                    Text("Name it myself")
+                        .font(.sHeadingM)
+                        .foregroundStyle(Color.sTextPrimary)
+                    Spacer(minLength: Spacing.sm)
+                    chevron
+                }
+                .padding(.vertical, Spacing.md)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Name it myself")
+            .accessibilityAddTraits(.isButton)
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Name it myself")
-        .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: - Actions
+
+    private func confirmCustomName() {
+        let name = trimmedCustomName
+        guard !name.isEmpty else { return }
+        commit(name)
+    }
+
+    private func commit(_ name: String) {
+        dismiss()
+        onSelect(name)
     }
 
     // MARK: - Pieces
 
     /// Nearby places come from MapKit (no photos), so rows use a place glyph
     /// rather than a thumbnail.
-    private var placeIcon: some View {
-        Image(systemName: "mappin")
+    private var placeIcon: some View { rowGlyph("mappin") }
+
+    private func rowGlyph(_ systemName: String) -> some View {
+        Image(systemName: systemName)
             .font(.system(size: 20, weight: .medium))
             .foregroundStyle(Color.sAccent)
             .frame(width: 56, height: 56)

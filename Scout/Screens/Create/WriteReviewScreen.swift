@@ -1,15 +1,22 @@
 import SwiftUI
+import CoreLocation
 
-/// Full review form reached from a spot's "Leave a review" action (or the
-/// create flow once a spot is chosen). Composes the shared form kit
-/// (`SSection`, `SMultiChipGroup`, `STextArea`, `SStarRating`, …) plus a few
-/// local pieces. Not wired — edits a local `ReviewDraft` and the submit/change
-/// actions are stubs.
+/// Full review form, the last step of the create flow. Composes the shared form
+/// kit (`SSection`, `SMultiChipGroup`, `STextArea`, `SStarRating`, …) plus a few
+/// local pieces (`ReviewLocationHeader`, `PhotoPickerField`). Backed by the flow's
+/// `CreateReviewViewModel`. Pushed onto the flow's NavigationStack, so
+/// back/"Change location" pops to the map; a successful submit calls `onComplete`
+/// to tear down the whole flow.
 struct WriteReviewScreen: View {
-    var spotName: String = "The Emerald Basin"
-
     @Environment(\.dismiss) private var dismiss
-    @State private var draft = ReviewDraft()
+    @State private var viewModel: CreateReviewViewModel
+    /// Called after a successful submit so the flow can dismiss everything.
+    var onComplete: () -> Void = {}
+
+    init(viewModel: CreateReviewViewModel, onComplete: @escaping () -> Void = {}) {
+        _viewModel = State(initialValue: viewModel)
+        self.onComplete = onComplete
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,58 +24,68 @@ struct WriteReviewScreen: View {
                 VStack(alignment: .leading, spacing: Spacing.xl) {
                     SSheetHeader(title: "Write Review") { dismiss() }
 
-                    locationBlock
+                    ReviewLocationHeader(spotName: viewModel.spotName) { dismiss() }
 
-                    PhotoUploadArea()
+                    PhotoPickerField(
+                        photos: viewModel.photos,
+                        maxPhotos: CreateReviewViewModel.maxPhotos,
+                        onAdd: { viewModel.addPhoto($0) },
+                        onRemove: { viewModel.removePhoto(at: $0) }
+                    )
 
-                    tipBanner
+                    STipBanner(message: "**Tip:** High-resolution shots with natural lighting showcase spots best.")
 
                     rateSection
 
-                    SSection(title: "Review Notes") {
+                    SSection(title: "Review Notes (Required)") {
                         STextArea(
-                            text: $draft.notes,
+                            text: $viewModel.notes,
                             placeholder: "Share your experience, tips for other photographers, or gear recommendations…",
                             minHeight: 140
                         )
                     }
 
-                    SSection(title: "Composition Hint") {
+                    SSection(title: "Composition Hint (Optional)") {
                         STextArea(
-                            text: $draft.compositionHint,
+                            text: $viewModel.compositionHint,
                             placeholder: "e.g., Best from low angle near the rocks"
                         )
                     }
 
-                    SSection(title: "Gear Recommendation") {
+                    SSection(title: "Gear Recommendation (Optional)") {
                         STextArea(
-                            text: $draft.gear,
+                            text: $viewModel.gear,
                             placeholder: "e.g., Wide preferred / Telephoto for compression"
                         )
                     }
 
                     SMultiChipGroup(
-                        title: "Best time of day",
-                        options: ReviewDraft.timeOptions,
-                        selection: $draft.times,
+                        title: "Best time of day (Optional)",
+                        options: CreateReviewViewModel.timeOptions,
+                        selection: $viewModel.times,
                         titleFont: .sHeadingL
                     ) { $0.label }
 
                     SMultiChipGroup(
-                        title: "Environment",
-                        options: ReviewDraft.environmentOptions,
-                        selection: $draft.environments,
+                        title: "Environment (Optional)",
+                        options: CreateReviewViewModel.environmentOptions,
+                        selection: $viewModel.environments,
                         titleFont: .sHeadingL
                     ) { $0 }
 
-                    accessLevelSection
+                    SSingleChipGroup(
+                        title: "Access Level (Required)",
+                        options: CreateReviewViewModel.accessOptions,
+                        selection: $viewModel.accessLevel,
+                        titleFont: .sHeadingL
+                    ) { $0 }
 
                     AccessLogisticsCard(
-                        permitRequired: $draft.permitRequired,
-                        droneAllowed: $draft.droneAllowed,
-                        tripodAllowed: $draft.tripodAllowed,
-                        entranceFee: $draft.entranceFee,
-                        crowdLevel: $draft.crowdLevel
+                        permitRequired: $viewModel.permitRequired,
+                        droneAllowed: $viewModel.droneAllowed,
+                        tripodAllowed: $viewModel.tripodAllowed,
+                        entranceFee: $viewModel.entranceFee,
+                        crowdLevel: $viewModel.crowdLevel
                     )
                 }
                 .padding(.horizontal, Spacing.lg)
@@ -79,47 +96,7 @@ struct WriteReviewScreen: View {
             footer
         }
         .background(Color.sBackground)
-    }
-
-    // MARK: - Location
-
-    private var locationBlock: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text("LOCATION")
-                .font(.sCaption)
-                .foregroundStyle(Color.sTextTertiary)
-
-            Text(spotName)
-                .font(.sDisplayM)
-                .foregroundStyle(Color.sTextPrimary)
-
-            Button {
-                // TODO: change-location flow
-            } label: {
-                Text("Change location")
-                    .font(.sBody)
-                    .foregroundStyle(Color.sAccent)
-                    .underline()
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: - Tip
-
-    private var tipBanner: some View {
-        HStack(alignment: .top, spacing: Spacing.sm) {
-            Image(systemName: "lightbulb")
-                .font(.system(size: 14))
-                .foregroundStyle(Color.sAccent)
-            Text("**Tip:** High-resolution shots with natural lighting showcase spots best.")
-                .font(.sBodyS)
-                .foregroundStyle(Color.sTextSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .padding(Spacing.md)
-        .background(Color.sAccentSoft, in: RoundedRectangle(cornerRadius: Radius.md))
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     // MARK: - Rating
@@ -129,23 +106,9 @@ struct WriteReviewScreen: View {
             Text("Rate your experience")
                 .font(.sHeadingL)
                 .foregroundStyle(Color.sTextPrimary)
-            SStarRating(rating: $draft.rating, size: 30)
+            SStarRating(rating: $viewModel.rating, size: 30)
         }
         .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Access level (required single-select)
-
-    private var accessLevelSection: some View {
-        SSection(title: "Access Level", titleFont: .sHeadingL) {
-            FlowLayout(spacing: Spacing.sm) {
-                ForEach(ReviewDraft.accessOptions, id: \.self) { level in
-                    SFilterChip(title: level, isSelected: draft.accessLevel == level) {
-                        draft.accessLevel = level
-                    }
-                }
-            }
-        }
     }
 
     // MARK: - Footer
@@ -153,10 +116,13 @@ struct WriteReviewScreen: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Divider()
-            SPrimaryButton(title: "Submit Review") {
-                // TODO: submit review
-                dismiss()
+            SPrimaryButton(title: "Submit Review", isLoading: viewModel.isSubmitting) {
+                Task {
+                    await viewModel.submit()
+                    if viewModel.phase == .success { onComplete() }
+                }
             }
+            .disabled(!viewModel.canSubmit)
             .padding(.horizontal, Spacing.lg)
             .padding(.top, Spacing.md)
             .padding(.bottom, Spacing.sm)
@@ -165,41 +131,21 @@ struct WriteReviewScreen: View {
     }
 }
 
-// MARK: - Draft model
-
-/// Local editable state for the form. The submit counterpart to `Review`; at
-/// wire-up it maps onto the `ReviewResponse` payload. Two reconciliations to
-/// note then:
-/// - `environments` is a `Set` here, but `Review.environment` is a single
-///   `String` (the mockup allows multiple selections).
-/// - these `environmentOptions` differ from `SpotFilters.environmentOptions`.
-struct ReviewDraft {
-    var rating: Int = 4
-    var notes: String = ""
-    var compositionHint: String = ""
-    var gear: String = ""
-    var times: Set<TimeOfDay> = [.goldenHour]
-    var environments: Set<String> = ["Alpine", "Water"]
-    var accessLevel: String = "Moderate"
-    var permitRequired: Bool = false
-    var droneAllowed: Bool = true
-    var tripodAllowed: Bool = true
-    var entranceFee: String = ""
-    var crowdLevel: String = "Moderate"
-
-    /// Ordered to match the mockup (not `TimeOfDay.allCases`).
-    static let timeOptions: [TimeOfDay] = [.goldenHour, .blueHour, .sunrise, .night, .midday]
-    static let environmentOptions = ["Forest", "Alpine", "Water", "Panoramic", "Coast"]
-    static let accessOptions = ["Easy", "Moderate", "Hard"]
-}
-
 // MARK: - Preview
 
+private func previewViewModel() -> CreateReviewViewModel {
+    CreateReviewViewModel(
+        target: .newSpot(name: "The Emerald Basin"),
+        coordinate: CLLocationCoordinate2D(latitude: 45.5152, longitude: -122.6784),
+        regionText: "Portland, USA"
+    )
+}
+
 #Preview("Write Review") {
-    WriteReviewScreen()
+    WriteReviewScreen(viewModel: previewViewModel())
 }
 
 #Preview("Write Review — Dark") {
-    WriteReviewScreen()
+    WriteReviewScreen(viewModel: previewViewModel())
         .preferredColorScheme(.dark)
 }

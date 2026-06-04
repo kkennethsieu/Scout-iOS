@@ -22,6 +22,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Scout uses your camera to take photos of a spot for your review.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Scout uses your location to show nearby photo spots and center the map on you.</string>
 </dict>

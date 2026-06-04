@@ -8,6 +8,11 @@ import MapKit
 /// Not wired — the CTA branches are `// TODO` stubs.
 struct CreateMapScreen: View {
     let photoData: Data?
+    /// The flow-owned accumulator. The map step writes its decision (final
+    /// coordinate + existing/new target) into it, then calls `proceed`.
+    let review: CreateReviewViewModel
+    /// Advances the flow to the review form (pushes onto the NavigationStack).
+    let proceed: () -> Void
 
     @State private var viewModel: CreateMapViewModel
     @State private var location = LocationManager()
@@ -19,8 +24,12 @@ struct CreateMapScreen: View {
 
     init(entry: CreateMapViewModel.Entry,
          photoData: Data? = nil,
-         service: SpotService = AppServices.spot) {
+         service: SpotService = AppServices.spot,
+         review: CreateReviewViewModel,
+         proceed: @escaping () -> Void) {
         self.photoData = photoData
+        self.review = review
+        self.proceed = proceed
         _viewModel = State(initialValue: CreateMapViewModel(entry: entry, service: service))
     }
 
@@ -34,6 +43,7 @@ struct CreateMapScreen: View {
 
             chrome
         }
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear {
             viewModel.start()
             location.start()
@@ -50,11 +60,10 @@ struct CreateMapScreen: View {
         .sheet(isPresented: $showNameSpot) {
             NameSpotSheet(
                 placeNames: viewModel.nearbyPlaceNames,
-                onSelect: { _ in
-                    // TODO: open the Review form pre-filled with the chosen name
-                },
-                onNameMyself: {
-                    // TODO: open the Review form with a blank name
+                onSelect: { name in
+                    review.place(coordinate: viewModel.pinCoordinate, regionText: viewModel.regionText)
+                    review.setNewSpotName(name)
+                    proceed()
                 }
             )
         }
@@ -223,8 +232,11 @@ struct CreateMapScreen: View {
             }
 
             SPrimaryButton(title: viewModel.ctaTitle) {
-                if viewModel.selectedSpot != nil {
-                    // TODO: open the Review form for the selected existing spot
+                if let spot = viewModel.selectedSpot {
+                    // Existing spot → straight to the review form, no Name Picker.
+                    review.place(coordinate: viewModel.pinCoordinate, regionText: viewModel.regionText)
+                    review.reviewExisting(id: spot.id, name: spot.name)
+                    proceed()
                 } else {
                     viewModel.loadNearbyPlaces()   // fetch only when needed
                     showNameSpot = true            // Confirm New → Name Picker
@@ -243,20 +255,29 @@ struct CreateMapScreen: View {
 
 // MARK: - Preview
 
+private func previewReview() -> CreateReviewViewModel {
+    CreateReviewViewModel(target: .newSpot(name: ""))
+}
+
 #Preview("Create Map — photo location") {
     CreateMapScreen(
         entry: .photo(CLLocationCoordinate2D(latitude: 45.5152, longitude: -122.6784)),
-        service: MockSpotService()
+        service: MockSpotService(),
+        review: previewReview(),
+        proceed: {}
     )
 }
 
 #Preview("Create Map — no photo location") {
-    CreateMapScreen(entry: .photo(nil), service: MockSpotService())
+    CreateMapScreen(entry: .photo(nil), service: MockSpotService(),
+                    review: previewReview(), proceed: {})
 }
 
 #Preview("Create Map — current location") {
     CreateMapScreen(
         entry: .currentLocation(CLLocationCoordinate2D(latitude: 34.0522, longitude: -118.2437)),
-        service: MockSpotService()
+        service: MockSpotService(),
+        review: previewReview(),
+        proceed: {}
     )
 }
