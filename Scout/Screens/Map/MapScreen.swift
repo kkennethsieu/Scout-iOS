@@ -59,9 +59,11 @@ struct MapScreen: View {
 
             ForEach(viewModel.spots) { spot in
                 Annotation(spot.name, coordinate: spot.coordinate) {
-                    SpotMapMarker(isSelected: viewModel.selectedSpotID == spot.id)
+                    NearbySpotMarker(name: spot.name,
+                                     isSelected: viewModel.selectedSpotID == spot.id)
                 }
                 .tag(spot.id)
+                .annotationTitles(.hidden)
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))

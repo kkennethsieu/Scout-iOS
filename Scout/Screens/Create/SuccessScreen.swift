@@ -96,7 +96,7 @@ struct SuccessScreen: View {
             }
             .clipped()
             .overlay(alignment: .topLeading) {
-                justAddedBadge
+                SBadge("Just Added")
                     .padding(Spacing.md)
             }
             .overlay(alignment: .bottom) {
@@ -105,17 +105,6 @@ struct SuccessScreen: View {
                         .padding(.bottom, Spacing.md)
                 }
             }
-    }
-
-    private var justAddedBadge: some View {
-        Text("Just Added")
-            .font(.sCaption)
-            .textCase(.uppercase)
-            .tracking(0.4)
-            .foregroundStyle(Color.sTextPrimary)
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: Capsule())
     }
 
     private var pageDots: some View {

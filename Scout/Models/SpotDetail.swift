@@ -15,11 +15,11 @@ nonisolated struct SpotDetail: Identifiable, Decodable, Hashable {
     let reviewCount: Int
     let avgRating: Double
     let recentReviewPhotos: [RecentReviewPhoto]
-    let modeAccessLevel: String
-    let modeEntranceFee: String
-    let modeCrowdLevel: String
-    let modeEnvironment: String
+    let modeAccessLevel: String?
+    let modeEntranceFee: String?
+    let modeCrowdLevel: String?
     let bestTimes: [String]
+    let bestSeasons: [String]
     let modePermitRequired: Bool?
     let modeDroneAllowed: Bool?
     let modeTripodAllowed: Bool?
@@ -32,16 +32,21 @@ nonisolated struct SpotDetail: Identifiable, Decodable, Hashable {
         [city, adminArea].filter { !$0.isEmpty }.joined(separator: ", ")
     }
 
-    /// "Mountain • Cascade Range, WA" style subtitle. Environment leads,
-    /// locality follows.
-    var subtitle: String {
-        [modeEnvironment, locality]
-            .filter { !$0.isEmpty }
-            .joined(separator: " • ")
-    }
+    /// Locality subtitle, e.g. "Cascade Range, WA".
+    var subtitle: String { locality }
 
     var shootingTimes: [TimeOfDay] {
         bestTimes.compactMap(TimeOfDay.init(raw:))
+    }
+
+    var seasons: [Season] {
+        bestSeasons.compactMap(Season.init(raw:))
+    }
+
+    /// Compact season summary for the Quick Facts pill, e.g. "Spring, Fall" or
+    /// "Year-Round"; "—" when no seasons are known.
+    var seasonsText: String {
+        seasons.isEmpty ? "—" : seasons.map(\.label).joined(separator: ", ")
     }
 
     var heroPhotos: [URL] {
@@ -85,8 +90,8 @@ nonisolated extension SpotDetail {
         modeAccessLevel: "Moderate",
         modeEntranceFee: "Free",
         modeCrowdLevel: "Moderate",
-        modeEnvironment: "Mountain",
         bestTimes: ["GoldenHour", "BlueHour", "Sunrise"],
+        bestSeasons: ["Spring", "Fall"],
         modePermitRequired: false,
         modeDroneAllowed: false,
         modeTripodAllowed: true,

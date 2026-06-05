@@ -59,46 +59,67 @@ struct CreateReviewViewModelTests {
 
     @Test func canSubmitTrueWhenComplete() {
         #expect(CreateReviewViewModel.canSubmit(rating: 4, name: "Emerald Basin",
-                                                notes: "Lovely light", hasLocation: true))
+                                                hasPhotos: true, hasLocation: true))
     }
 
-    @Test func canSubmitFalseOnEmptyOrWhitespace() {
-        #expect(CreateReviewViewModel.canSubmit(rating: 4, name: "  ", notes: "x", hasLocation: true) == false)
-        #expect(CreateReviewViewModel.canSubmit(rating: 4, name: "X", notes: "  ", hasLocation: true) == false)
+    @Test func canSubmitFalseOnEmptyOrWhitespaceName() {
+        #expect(CreateReviewViewModel.canSubmit(rating: 4, name: "  ", hasPhotos: true, hasLocation: true) == false)
+    }
+
+    @Test func canSubmitFalseWithoutPhoto() {
+        #expect(CreateReviewViewModel.canSubmit(rating: 4, name: "X", hasPhotos: false, hasLocation: true) == false)
     }
 
     @Test func canSubmitFalseOnRatingOutOfRange() {
-        #expect(CreateReviewViewModel.canSubmit(rating: 0, name: "X", notes: "x", hasLocation: true) == false)
-        #expect(CreateReviewViewModel.canSubmit(rating: 6, name: "X", notes: "x", hasLocation: true) == false)
+        #expect(CreateReviewViewModel.canSubmit(rating: 0, name: "X", hasPhotos: true, hasLocation: true) == false)
+        #expect(CreateReviewViewModel.canSubmit(rating: 6, name: "X", hasPhotos: true, hasLocation: true) == false)
     }
 
     @Test func canSubmitFalseWithoutLocation() {
-        #expect(CreateReviewViewModel.canSubmit(rating: 4, name: "X", notes: "x", hasLocation: false) == false)
+        #expect(CreateReviewViewModel.canSubmit(rating: 4, name: "X", hasPhotos: true, hasLocation: false) == false)
     }
 
-    @Test func canSubmitFalseWhenTextExceedsCaps() {
+    @Test func canSubmitFalseWhenNameExceedsCap() {
         let longName = String(repeating: "a", count: CreateReviewViewModel.maxNameLength + 1)
-        let longNotes = String(repeating: "a", count: CreateReviewViewModel.maxNotesLength + 1)
-        #expect(CreateReviewViewModel.canSubmit(rating: 4, name: longName, notes: "x", hasLocation: true) == false)
-        #expect(CreateReviewViewModel.canSubmit(rating: 4, name: "X", notes: longNotes, hasLocation: true) == false)
+        #expect(CreateReviewViewModel.canSubmit(rating: 4, name: longName, hasPhotos: true, hasLocation: true) == false)
     }
 
-    @Test func instanceCanSubmitRequiresValidCoordinate() {
-        let vm = CreateReviewViewModel(target: .newSpot(name: "Emerald Basin"), coordinate: nil)
-        vm.notes = "Lovely light"
-        #expect(vm.canSubmit == false)        // no coordinate → can't create the spot
-
-        let placed = makeVM(target: .newSpot(name: "Emerald Basin"))
-        placed.notes = "Lovely light"
-        #expect(placed.canSubmit)
+    @Test func canSubmitTrueWithoutNotes() {
+        // Notes are optional now — a photo + rating + spot is enough.
+        #expect(CreateReviewViewModel.canSubmit(rating: 4, name: "X", hasPhotos: true, hasLocation: true))
     }
 
-    // MARK: - Environment collapse
+    @Test func submitHintPrioritizesMissingPhotoThenClears() {
+        let vm = makeVM(target: .newSpot(name: "Emerald Basin"))   // name + coord, no photo
+        vm.draft.rating = 5                  // isolate the photo as the only blocker
+        #expect(vm.submitHint == "Add at least one photo to post.")
+        vm.addPhoto(Data([0x1]))
+        #expect(vm.submitHint == nil)        // ready → no hint
+    }
 
-    @Test func primaryEnvironmentPicksFirstInCanonicalOrder() {
-        // "Forest" precedes "Water" in the option list regardless of set order.
-        #expect(CreateReviewViewModel.primaryEnvironment(from: ["Water", "Forest"]) == "Forest")
-        #expect(CreateReviewViewModel.primaryEnvironment(from: []) == "")
+    @Test func submitHintAsksForRatingWhenOnlyRatingMissing() {
+        let vm = makeVM(photoData: Data([0x1]))   // photo + name + coord, rating still 0
+        #expect(vm.submitHint == "Add a rating to post.")
+    }
+
+    @Test func submitHintNilWhenReady() {
+        let vm = makeVM(photoData: Data([0x1]))
+        vm.draft.rating = 4
+        #expect(vm.canSubmit)
+        #expect(vm.submitHint == nil)
+    }
+
+    @Test func instanceCanSubmitRequiresPhotoAndCoordinate() {
+        let noPhoto = makeVM(target: .newSpot(name: "Emerald Basin"))
+        #expect(noPhoto.canSubmit == false)   // no photo
+
+        let noCoord = CreateReviewViewModel(target: .newSpot(name: "Emerald Basin"),
+                                            coordinate: nil, photoData: Data([0x1]))
+        #expect(noCoord.canSubmit == false)   // no coordinate → can't create the spot
+
+        let ready = makeVM(target: .newSpot(name: "Emerald Basin"), photoData: Data([0x1]))
+        ready.draft.rating = 4
+        #expect(ready.canSubmit)
     }
 
     // MARK: - Photos (capped, seeded)
@@ -132,12 +153,14 @@ struct CreateReviewViewModelTests {
 
     @Test func payloadMapsFieldsAndLocation() {
         let vm = makeVM(target: .newSpot(name: "  Emerald Basin  "), photoData: Data([0x9]))
-        vm.rating = 5
-        vm.notes = "Lovely light"
-        vm.times = [.sunrise, .goldenHour]      // out of canonical order on purpose
-        vm.environments = ["Water", "Forest"]
-        vm.gear = ""
-        vm.compositionHint = ""
+        vm.draft.rating = 5
+        vm.draft.notes = "Lovely light"
+        vm.draft.times = [.sunrise, .goldenHour]      // out of canonical order on purpose
+        vm.draft.seasons = [.fall, .spring]           // out of canonical order on purpose
+        vm.draft.permitRequired = nil                 // unanswered stays nil
+        vm.draft.droneAllowed = false
+        vm.draft.gear = ""
+        vm.draft.compositionHint = ""
 
         let payload = vm.makePayload()
         #expect(payload.name == "Emerald Basin")                 // trimmed
@@ -145,7 +168,9 @@ struct CreateReviewViewModelTests {
         #expect(payload.lng == coordinate.longitude)
         #expect(payload.overallRating == 5)
         #expect(payload.bestTimeOfDay == ["GoldenHour", "Sunrise"])  // canonical order, raw values
-        #expect(payload.environment == "Forest")
+        #expect(payload.bestSeason == ["Spring", "Fall"])            // canonical order, raw values
+        #expect(payload.permitRequired == nil)
+        #expect(payload.droneAllowed == false)
         #expect(payload.gearRecommendations == "")               // default, not nil
         #expect(payload.compositionHints == "")
         #expect(payload.photos.count == 1)
@@ -154,15 +179,15 @@ struct CreateReviewViewModelTests {
     // MARK: - Submit lifecycle
 
     @Test func submitSucceedsWhenValid() async {
-        let vm = makeVM()
-        vm.notes = "Lovely light"
+        let vm = makeVM(photoData: Data([0x1]))
+        vm.draft.rating = 4
         await vm.submit()
         #expect(vm.phase == .success)
     }
 
     @Test func submitIsNoOpWhenInvalid() async {
         let vm = makeVM()
-        // notes empty → can't submit
+        // no photo → can't submit
         await vm.submit()
         #expect(vm.phase == .idle)
     }

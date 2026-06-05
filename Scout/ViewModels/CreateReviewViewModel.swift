@@ -38,7 +38,8 @@ final class CreateReviewViewModel {
     /// The create endpoint accepts an array of photos; the UI caps it here.
     nonisolated static let maxPhotos = 3
     nonisolated static let maxNameLength = 200
-    nonisolated static let maxNotesLength = 1000
+    /// Backend `TEXT_MAX` for notes / gear / composition.
+    nonisolated static let maxNotesLength = 2000
 
     // MARK: - Identity & context (fixed once the map step commits)
 
@@ -56,25 +57,14 @@ final class CreateReviewViewModel {
 
     // MARK: - Form fields
 
-    var rating: Int = 4
-    var notes: String = ""
-    var compositionHint: String = ""
-    var gear: String = ""
-    var times: Set<TimeOfDay> = []
-    var environments: Set<String> = []
-    var accessLevel: String = "Moderate"
-    var permitRequired: Bool = false
-    var droneAllowed: Bool = true
-    var tripodAllowed: Bool = true
-    var entranceFee: String = ""
-    var crowdLevel: String = "Moderate"
+    var draft = ReviewDraft()
 
     private(set) var phase: SubmitPhase = .idle
 
     // MARK: - Options (ordered to match the mockup, not `allCases`)
 
     nonisolated static let timeOptions: [TimeOfDay] = [.goldenHour, .blueHour, .sunrise, .night, .midday]
-    nonisolated static let environmentOptions = ["Forest", "Alpine", "Water", "Panoramic", "Coast"]
+    nonisolated static let seasonOptions: [Season] = [.spring, .summer, .fall, .winter, .yearRound]
     nonisolated static let accessOptions = ["Easy", "Moderate", "Hard"]
 
     // MARK: - Init
@@ -111,28 +101,37 @@ final class CreateReviewViewModel {
 
     /// Whether the form is complete enough to submit.
     var canSubmit: Bool {
-        Self.canSubmit(rating: rating, name: spotName, notes: notes,
+        Self.canSubmit(rating: draft.rating, name: spotName, hasPhotos: !photos.isEmpty,
                        hasLocation: coordinate.map(CLLocationCoordinate2DIsValid) ?? false)
+    }
+
+    /// One-line explanation of what's still blocking submission, or nil when ready
+    /// — shown under the disabled Submit button. Ordered by how likely each is to
+    /// be the actual blocker (a missing photo is the common one).
+    var submitHint: String? {
+        guard !canSubmit else { return nil }
+        if photos.isEmpty { return "Add at least one photo to post." }
+        if spotName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Name this spot to post."
+        }
+        if coordinate.map(CLLocationCoordinate2DIsValid) != true {
+            return "Set the spot location to post."
+        }
+        return "Add a rating to post."
     }
 
     // MARK: - Pure logic (unit-tested)
 
-    /// Mirrors the endpoint's required constraints: rating 1…5, a non-empty name
-    /// within the length cap, non-empty notes within the cap, and a valid
-    /// coordinate (the spot's `lat`/`lng`).
-    nonisolated static func canSubmit(rating: Int, name: String, notes: String, hasLocation: Bool) -> Bool {
+    /// Mirrors the endpoint's required constraints: `overall_rating` 1…5, at least
+    /// one photo (`photo_urls` is required), a non-empty spot name within the
+    /// length cap, and a valid coordinate (the spot's `lat`/`lng`). Everything
+    /// else — including notes — is optional on the backend.
+    nonisolated static func canSubmit(rating: Int, name: String, hasPhotos: Bool, hasLocation: Bool) -> Bool {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         return (1...5).contains(rating)
+            && hasPhotos
             && !trimmedName.isEmpty && trimmedName.count <= maxNameLength
-            && !trimmedNotes.isEmpty && trimmedNotes.count <= maxNotesLength
             && hasLocation
-    }
-
-    /// The backend stores a single environment; pick the first selected one in
-    /// canonical option order so the result is deterministic.
-    nonisolated static func primaryEnvironment(from selected: Set<String>) -> String {
-        environmentOptions.first { selected.contains($0) } ?? ""
     }
 
     // MARK: - Photo actions
@@ -165,27 +164,26 @@ final class CreateReviewViewModel {
         target = .newSpot(name: name)
     }
 
-    /// Maps the current draft onto the multipart submission payload. Times are
-    /// emitted in canonical order as their raw backend strings; environments
-    /// collapse to the backend's single value; the optional text fields default
-    /// to `""` (the endpoint's default), never null.
+    /// Maps the current draft onto the multipart submission payload. Times and
+    /// seasons are emitted in canonical order as their raw backend strings; the
+    /// tristate logistics pass through as `Bool?` (nil = unanswered).
     func makePayload() -> NewReviewPayload {
         NewReviewPayload(
             name: spotName.trimmingCharacters(in: .whitespacesAndNewlines),
             lat: coordinate?.latitude ?? 0,
             lng: coordinate?.longitude ?? 0,
-            overallRating: rating,
-            notes: notes,
-            bestTimeOfDay: Self.timeOptions.filter { times.contains($0) }.map(\.rawValue),
-            accessLevel: accessLevel,
-            entranceFee: entranceFee,
-            crowdLevel: crowdLevel,
-            environment: Self.primaryEnvironment(from: environments),
-            gearRecommendations: gear,
-            compositionHints: compositionHint,
-            permitRequired: permitRequired,
-            droneAllowed: droneAllowed,
-            tripodAllowed: tripodAllowed,
+            overallRating: draft.rating,
+            notes: draft.notes,
+            bestTimeOfDay: Self.timeOptions.filter { draft.times.contains($0) }.map(\.rawValue),
+            bestSeason: Self.seasonOptions.filter { draft.seasons.contains($0) }.map(\.rawValue),
+            accessLevel: draft.accessLevel,
+            entranceFee: draft.entranceFee,
+            crowdLevel: draft.crowdLevel,
+            gearRecommendations: draft.gear,
+            compositionHints: draft.compositionHint,
+            permitRequired: draft.permitRequired,
+            droneAllowed: draft.droneAllowed,
+            tripodAllowed: draft.tripodAllowed,
             photos: photos
         )
     }
@@ -204,7 +202,8 @@ final class CreateReviewViewModel {
 
 /// The multipart body for creating a spot + its first review. Field names map to
 /// the endpoint's `Form`/`File` parameters (snake_case at encode time). The
-/// optional text fields are `""` when unset (the endpoint's default), not null.
+/// optional vocabularies (`accessLevel`, `crowdLevel`) and tristate logistics are
+/// `nil` when unanswered; `bestSeason` is list-shaped like `bestTimeOfDay`.
 nonisolated struct NewReviewPayload: Equatable {
     let name: String
     let lat: Double
@@ -212,14 +211,14 @@ nonisolated struct NewReviewPayload: Equatable {
     let overallRating: Int
     let notes: String
     let bestTimeOfDay: [String]
-    let accessLevel: String
+    let bestSeason: [String]
+    let accessLevel: String?
     let entranceFee: String
-    let crowdLevel: String
-    let environment: String
+    let crowdLevel: String?
     let gearRecommendations: String
     let compositionHints: String
-    let permitRequired: Bool
-    let droneAllowed: Bool
-    let tripodAllowed: Bool
+    let permitRequired: Bool?
+    let droneAllowed: Bool?
+    let tripodAllowed: Bool?
     let photos: [Data]
 }

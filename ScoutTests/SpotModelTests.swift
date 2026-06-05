@@ -94,9 +94,10 @@ struct SpotModelTests {
 
     // MARK: - SpotDetail
 
-    @Test func spotDetailSubtitleCombinesEnvironmentAndLocality() {
+    @Test func spotDetailSubtitleIsLocality() {
         let detail = SpotDetail.sample
-        #expect(detail.subtitle == "Mountain • Cascade Range, WA")
+        #expect(detail.subtitle == "Cascade Range, WA")
+        #expect(detail.seasonsText == "Spring, Fall")
     }
 
     @Test func spotDetailDecodesFullBackendSchema() throws {
@@ -111,8 +112,8 @@ struct SpotModelTests {
             "mode_access_level": "Moderate",
             "mode_entrance_fee": "Free",
             "mode_crowd_level": "Light",
-            "mode_environment": "Mountain",
             "best_times": ["GoldenHour", "BlueHour"],
+            "best_seasons": ["Spring", "Fall"],
             "mode_permit_required": false,
             "mode_drone_allowed": false,
             "mode_tripod_allowed": true,
@@ -123,7 +124,8 @@ struct SpotModelTests {
 
         let detail = try JSONDecoder.scout.decode(SpotDetail.self, from: json)
 
-        #expect(detail.modeEnvironment == "Mountain")
+        #expect(detail.modeAccessLevel == "Moderate")
+        #expect(detail.seasons == [.spring, .fall])
         #expect(detail.shootingTimes == [.goldenHour, .blueHour])
         #expect(detail.modePermitRequired == false)
         #expect(detail.modeTripodAllowed == true)
@@ -134,7 +136,8 @@ struct SpotModelTests {
     }
 
     @Test func spotDetailDecodesWithMissingOptionalAggregates() throws {
-        // best_times / gear / composition default to []; mode_* booleans to nil.
+        // best_times/best_seasons/gear/composition default to []; mode_* strings
+        // and booleans to nil.
         let json = """
         {
             "id": "1", "name": "Basin",
@@ -143,11 +146,8 @@ struct SpotModelTests {
             "created_at": "2026-05-01T12:00:00Z",
             "review_count": 5, "avg_rating": 4.2,
             "recent_review_photos": [],
-            "mode_access_level": "Moderate",
-            "mode_entrance_fee": "Free",
-            "mode_crowd_level": "Light",
-            "mode_environment": "Mountain",
             "best_times": [],
+            "best_seasons": [],
             "recent_gear_recommendations": [],
             "recent_composition_hints": []
         }
@@ -155,10 +155,14 @@ struct SpotModelTests {
 
         let detail = try JSONDecoder.scout.decode(SpotDetail.self, from: json)
 
+        #expect(detail.modeAccessLevel == nil)
+        #expect(detail.modeEntranceFee == nil)
+        #expect(detail.modeCrowdLevel == nil)
         #expect(detail.modePermitRequired == nil)
         #expect(!detail.hasLogistics)
         #expect(!detail.hasGearOrComposition)
         #expect(detail.shootingTimes.isEmpty)
+        #expect(detail.seasonsText == "—")
     }
 
     // MARK: - Review decoding
@@ -171,10 +175,10 @@ struct SpotModelTests {
             "overall_rating": 5,
             "notes": "Great spot",
             "best_time_of_day": ["GoldenHour"],
+            "best_season": ["Spring", "Fall"],
             "access_level": "Moderate",
             "entrance_fee": "Free",
             "crowd_level": "Light",
-            "environment": "Mountain",
             "gear_recommendations": "Wide-angle",
             "composition_hints": "",
             "permit_required": false,
@@ -188,9 +192,36 @@ struct SpotModelTests {
 
         #expect(review.overallRating == 5)
         #expect(review.times == [.goldenHour])
+        #expect(review.seasons == [.spring, .fall])
         #expect(review.gearRecommendations == "Wide-angle")
         #expect(review.droneAllowed == true)
         #expect(review.permitRequired == false)
+    }
+
+    @Test func decodesReviewWithOnlyRequiredFields() throws {
+        // Backend always emits the list defaults ([]); everything else may be
+        // absent → optionals decode as nil.
+        let json = """
+        {
+            "id": "r1", "spot_id": "s1", "user_id": "u1",
+            "photo_urls": ["https://example.com/a.jpg"],
+            "overall_rating": 3,
+            "best_time_of_day": [],
+            "best_season": [],
+            "created_at": "2026-05-01T12:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let review = try JSONDecoder.scout.decode(Review.self, from: json)
+
+        #expect(review.overallRating == 3)
+        #expect(review.notes == nil)
+        #expect(review.accessLevel == nil)
+        #expect(review.permitRequired == nil)
+        #expect(review.droneAllowed == nil)
+        #expect(review.tripodAllowed == nil)
+        #expect(review.times.isEmpty)
+        #expect(review.seasons.isEmpty)
     }
 
     @Test func decodesPaginatedReviewsEnvelope() throws {
@@ -203,10 +234,10 @@ struct SpotModelTests {
                     "overall_rating": 4,
                     "notes": "Nice",
                     "best_time_of_day": ["Sunrise"],
+                    "best_season": ["Summer"],
                     "access_level": "Easy",
                     "entrance_fee": "Free",
                     "crowd_level": "Light",
-                    "environment": "Coast",
                     "gear_recommendations": null,
                     "composition_hints": null,
                     "permit_required": false,
@@ -254,16 +285,33 @@ struct SpotModelTests {
         #expect(TimeOfDay(raw: "nonsense") == nil)
     }
 
+    // MARK: - Season
+
+    @Test func seasonParsesBackendLiterals() {
+        // Canonical PascalCase (matches backend Season).
+        #expect(Season(raw: "Spring") == .spring)
+        #expect(Season(raw: "Summer") == .summer)
+        #expect(Season(raw: "Fall") == .fall)
+        #expect(Season(raw: "Winter") == .winter)
+        #expect(Season(raw: "YearRound") == .yearRound)
+        // Tolerant variants.
+        #expect(Season(raw: "year_round") == .yearRound)
+        #expect(Season(raw: "autumn") == .fall)
+        #expect(Season(raw: "nonsense") == nil)
+    }
+
     @Test func reviewTimesDropsUnknownValues() {
         let review = Review(
             id: "r", spotId: "s", userId: "u", photoUrls: [],
-            overallRating: 5, notes: "",
+            overallRating: 5, notes: nil,
             bestTimeOfDay: ["Sunrise", "garbage", "BlueHour"],
-            accessLevel: "", entranceFee: "", crowdLevel: "", environment: "",
+            bestSeason: ["Spring", "garbage", "YearRound"],
+            accessLevel: nil, entranceFee: nil, crowdLevel: nil,
             gearRecommendations: nil, compositionHints: nil,
-            permitRequired: false, droneAllowed: false, tripodAllowed: false,
+            permitRequired: nil, droneAllowed: nil, tripodAllowed: nil,
             createdAt: Date()
         )
         #expect(review.times == [.sunrise, .blueHour])
+        #expect(review.seasons == [.spring, .yearRound])
     }
 }

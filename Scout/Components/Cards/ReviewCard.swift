@@ -82,11 +82,14 @@ struct ReviewCard: View {
 
     // MARK: - Notes
 
+    @ViewBuilder
     private var notes: some View {
-        Text(review.notes)
-            .font(.sBodyL)
-            .foregroundStyle(Color.sTextPrimary)
-            .fixedSize(horizontal: false, vertical: true)
+        if let notes = review.notes, !notes.isEmpty {
+            Text(notes)
+                .font(.sBodyL)
+                .foregroundStyle(Color.sTextPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     // MARK: - Photo grid

@@ -20,7 +20,6 @@ struct CreateMapScreen: View {
     /// re-decode the full-size photo every frame.
     @State private var thumbnail: Image?
     @State private var showNameSpot = false
-    @Environment(\.dismiss) private var dismiss
 
     init(entry: CreateMapViewModel.Entry,
          photoData: Data? = nil,
@@ -37,7 +36,7 @@ struct CreateMapScreen: View {
         ZStack(alignment: .top) {
             map.ignoresSafeArea()
 
-            centerPin
+            CreateCenterPin()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .allowsHitTesting(false)
 
@@ -61,7 +60,7 @@ struct CreateMapScreen: View {
             NameSpotSheet(
                 placeNames: viewModel.nearbyPlaceNames,
                 onSelect: { name in
-                    review.place(coordinate: viewModel.pinCoordinate, regionText: viewModel.regionText)
+                    commitPin()
                     review.setNewSpotName(name)
                     proceed()
                 }
@@ -75,7 +74,8 @@ struct CreateMapScreen: View {
         Map(position: $viewModel.cameraPosition, selection: $viewModel.selectedSpotID) {
             ForEach(viewModel.nearbySpots) { spot in
                 Annotation(spot.name, coordinate: spot.coordinate) {
-                    nearbyMarker(spot)
+                    NearbySpotMarker(name: spot.name,
+                                     isSelected: viewModel.selectedSpotID == spot.id)
                 }
                 .tag(spot.id)
                 .annotationTitles(.hidden)
@@ -87,58 +87,16 @@ struct CreateMapScreen: View {
         }
     }
 
-    private func nearbyMarker(_ spot: SpotSummary) -> some View {
-        VStack(spacing: 2) {
-            SpotMapMarker(isSelected: viewModel.selectedSpotID == spot.id)
-            Text(spot.name)
-                .font(.sCaption)
-                .foregroundStyle(Color.sTextPrimary)
-                .padding(.horizontal, Spacing.sm)
-                .padding(.vertical, 2)
-                .background(.regularMaterial, in: Capsule())
-                .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
-                .fixedSize()
-        }
-    }
-
-    // MARK: - Centre pin
-
-    private var centerPin: some View {
-        ZStack {
-            Circle()
-                .fill(.white)
-                .frame(width: 26, height: 26)
-                .overlay(Circle().stroke(Color.sAccent, lineWidth: 3))
-                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
-
-            dragHint.offset(y: -36)
-        }
-    }
-
-    private var dragHint: some View {
-        HStack(spacing: Spacing.xs) {
-            Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
-                .font(.system(size: 11, weight: .semibold))
-            Text("Drag to adjust")
-                .font(.sCaption)
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, Spacing.xs)
-        .background(.black.opacity(0.78), in: Capsule())
-        .fixedSize()
-    }
-
     // MARK: - Chrome
 
     private var chrome: some View {
         VStack(spacing: 0) {
-            header
-            bannerBar
+            SNavHeader(title: "Confirm Location")
+            STipBanner(message: "\(viewModel.banner.text)")
 
             HStack {
                 Spacer()
-                photoThumbnail
+                MapPhotoThumbnail(image: thumbnail)
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.top, Spacing.lg)
@@ -159,97 +117,35 @@ struct CreateMapScreen: View {
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.md)
 
-            footer
+            ConfirmLocationFooter(
+                regionText: viewModel.regionText,
+                ctaTitle: viewModel.ctaTitle,
+                onInfo: { /* TODO: explain how the location was determined */ },
+                onContinue: continueTapped
+            )
         }
     }
 
-    private var header: some View {
-        ZStack {
-            Text("Confirm Location")
-                .font(.sHeadingM)
-                .foregroundStyle(Color.sTextPrimary)
+    // MARK: - Actions
 
-            SBackButton()
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.bottom, Spacing.sm)
-        .background(Color.sBackground)
-        .overlay(alignment: .bottom) {
-            Divider().background(Color.sBorderSubtle)
-        }
-    }
-
-    private var bannerBar: some View {
-        Text(viewModel.banner.text)
-            .font(.sBodyS)
-            .foregroundStyle(Color.sTextSecondary)
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, Spacing.lg)
-            .padding(.vertical, Spacing.sm)
-            .background(Color.sSurface)
-    }
-
-    @ViewBuilder
-    private var photoThumbnail: some View {
-        if let thumbnail {
-            thumbnail
-                .resizable()
-                .scaledToFill()
-                .frame(width: 72, height: 72)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radius.md)
-                        .stroke(.white, lineWidth: 2)
-                )
-                .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+    /// Bottom-CTA action: review the selected existing spot (straight to the form,
+    /// no Name Picker), or continue with a new spot (fetch nearby place names, then
+    /// open the Name Picker).
+    private func continueTapped() {
+        if let spot = viewModel.selectedSpot {
+            commitPin()
+            review.reviewExisting(id: spot.id, name: spot.name)
+            proceed()
+        } else {
+            viewModel.loadNearbyPlaces()   // fetch only when needed
+            showNameSpot = true            // Confirm New → Name Picker
         }
     }
 
-    private var footer: some View {
-        VStack(spacing: Spacing.md) {
-            HStack {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("SPOTTED IN")
-                        .font(.sCaption)
-                        .foregroundStyle(Color.sTextTertiary)
-                    Text(viewModel.regionText)
-                        .font(.sHeadingM)
-                        .foregroundStyle(Color.sTextPrimary)
-                }
-
-                Spacer()
-
-                Button {
-                    // TODO: explain how the location was determined
-                } label: {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.sTextTertiary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            SPrimaryButton(title: viewModel.ctaTitle) {
-                if let spot = viewModel.selectedSpot {
-                    // Existing spot → straight to the review form, no Name Picker.
-                    review.place(coordinate: viewModel.pinCoordinate, regionText: viewModel.regionText)
-                    review.reviewExisting(id: spot.id, name: spot.name)
-                    proceed()
-                } else {
-                    viewModel.loadNearbyPlaces()   // fetch only when needed
-                    showNameSpot = true            // Confirm New → Name Picker
-                }
-            }
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.md)
-        .padding(.bottom, Spacing.sm)
-        .background(Color.sBackground)
-        .overlay(alignment: .top) {
-            Divider().background(Color.sBorderSubtle)
-        }
+    /// Writes the final pin (coordinate + region) into the flow's review draft —
+    /// shared by both the existing-spot and new-spot paths before they proceed.
+    private func commitPin() {
+        review.place(coordinate: viewModel.pinCoordinate, regionText: viewModel.regionText)
     }
 }
 

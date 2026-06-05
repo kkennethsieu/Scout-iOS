@@ -8,7 +8,7 @@ struct STipBanner: View {
     let message: LocalizedStringKey
 
     var body: some View {
-        HStack(alignment: .top, spacing: Spacing.sm) {
+        HStack(alignment: .center, spacing: Spacing.sm) {
             Image(systemName: icon)
                 .font(.system(size: 14))
                 .foregroundStyle(Color.sAccent)
@@ -16,9 +16,11 @@ struct STipBanner: View {
                 .font(.sBodyS)
                 .foregroundStyle(Color.sTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.leading)
             Spacer(minLength: 0)
         }
-        .padding(Spacing.md)
+        .padding(Spacing.lg)
+        .padding(.horizontal, Spacing.md)
         .background(Color.sAccentSoft, in: RoundedRectangle(cornerRadius: Radius.md))
     }
 }

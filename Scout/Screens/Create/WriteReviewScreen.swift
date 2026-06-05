@@ -26,66 +26,74 @@ struct WriteReviewScreen: View {
 
                     ReviewLocationHeader(spotName: viewModel.spotName) { dismiss() }
 
-                    PhotoPickerField(
-                        photos: viewModel.photos,
-                        maxPhotos: CreateReviewViewModel.maxPhotos,
-                        onAdd: { viewModel.addPhoto($0) },
-                        onRemove: { viewModel.removePhoto(at: $0) }
-                    )
+                    VStack(alignment: .leading, spacing: Spacing.md) {
+                        HStack(spacing: Spacing.sm) {
+                            Text("Photos")
+                                .font(.sHeadingL)
+                                .foregroundStyle(Color.sTextPrimary)
+                            SBadge("Required")
+                        }
+                        PhotoPickerField(
+                            photos: viewModel.photos,
+                            maxPhotos: CreateReviewViewModel.maxPhotos,
+                            onAdd: { viewModel.addPhoto($0) },
+                            onRemove: { viewModel.removePhoto(at: $0) }
+                        )
+                    }
 
                     STipBanner(message: "**Tip:** High-resolution shots with natural lighting showcase spots best.")
 
-                    rateSection
+                    RateExperienceField(rating: $viewModel.draft.rating)
 
-                    SSection(title: "Review Notes (Required)") {
+                    SSection(title: "Review Notes") {
                         STextArea(
-                            text: $viewModel.notes,
+                            text: $viewModel.draft.notes,
                             placeholder: "Share your experience, tips for other photographers, or gear recommendations…",
                             minHeight: 140
                         )
                     }
 
-                    SSection(title: "Composition Hint (Optional)") {
+                    SSection(title: "Composition Hint") {
                         STextArea(
-                            text: $viewModel.compositionHint,
+                            text: $viewModel.draft.compositionHint,
                             placeholder: "e.g., Best from low angle near the rocks"
                         )
                     }
 
-                    SSection(title: "Gear Recommendation (Optional)") {
+                    SSection(title: "Gear Recommendation") {
                         STextArea(
-                            text: $viewModel.gear,
+                            text: $viewModel.draft.gear,
                             placeholder: "e.g., Wide preferred / Telephoto for compression"
                         )
                     }
 
                     SMultiChipGroup(
-                        title: "Best time of day (Optional)",
+                        title: "Best time of day",
                         options: CreateReviewViewModel.timeOptions,
-                        selection: $viewModel.times,
+                        selection: $viewModel.draft.times,
                         titleFont: .sHeadingL
                     ) { $0.label }
 
                     SMultiChipGroup(
-                        title: "Environment (Optional)",
-                        options: CreateReviewViewModel.environmentOptions,
-                        selection: $viewModel.environments,
+                        title: "Best season",
+                        options: CreateReviewViewModel.seasonOptions,
+                        selection: $viewModel.draft.seasons,
                         titleFont: .sHeadingL
-                    ) { $0 }
+                    ) { $0.label }
 
                     SSingleChipGroup(
-                        title: "Access Level (Required)",
+                        title: "Access Level",
                         options: CreateReviewViewModel.accessOptions,
-                        selection: $viewModel.accessLevel,
-                        titleFont: .sHeadingL
+                        selection: $viewModel.draft.accessLevel,
+                        titleFont: .sHeadingL,
                     ) { $0 }
 
                     AccessLogisticsCard(
-                        permitRequired: $viewModel.permitRequired,
-                        droneAllowed: $viewModel.droneAllowed,
-                        tripodAllowed: $viewModel.tripodAllowed,
-                        entranceFee: $viewModel.entranceFee,
-                        crowdLevel: $viewModel.crowdLevel
+                        permitRequired: $viewModel.draft.permitRequired,
+                        droneAllowed: $viewModel.draft.droneAllowed,
+                        tripodAllowed: $viewModel.draft.tripodAllowed,
+                        entranceFee: $viewModel.draft.entranceFee,
+                        crowdLevel: $viewModel.draft.crowdLevel
                     )
                 }
                 .padding(.horizontal, Spacing.lg)
@@ -93,41 +101,19 @@ struct WriteReviewScreen: View {
                 .padding(.bottom, Spacing.xxxl)
             }
 
-            footer
-        }
-        .background(Color.sBackground)
-        .toolbar(.hidden, for: .navigationBar)
-    }
-
-    // MARK: - Rating
-
-    private var rateSection: some View {
-        VStack(spacing: Spacing.md) {
-            Text("Rate your experience")
-                .font(.sHeadingL)
-                .foregroundStyle(Color.sTextPrimary)
-            SStarRating(rating: $viewModel.rating, size: 30)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Footer
-
-    private var footer: some View {
-        VStack(spacing: 0) {
-            Divider()
-            SPrimaryButton(title: "Submit Review", isLoading: viewModel.isSubmitting) {
+            ReviewSubmitBar(
+                isSubmitting: viewModel.isSubmitting,
+                isEnabled: viewModel.canSubmit,
+                hint: viewModel.submitHint
+            ) {
                 Task {
                     await viewModel.submit()
                     if viewModel.phase == .success { onComplete() }
                 }
             }
-            .disabled(!viewModel.canSubmit)
-            .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.md)
-            .padding(.bottom, Spacing.sm)
         }
-        .background(.ultraThinMaterial)
+        .background(Color.sBackground)
+        .toolbar(.hidden, for: .navigationBar)
     }
 }
 

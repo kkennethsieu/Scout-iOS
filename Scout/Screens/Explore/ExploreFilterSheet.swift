@@ -54,12 +54,6 @@ struct ExploreFilterSheet: View {
                         }
                     }
 
-                    SMultiChipGroup(
-                        title: "Environment",
-                        options: SpotFilters.environmentOptions,
-                        selection: $draft.environments
-                    ) { $0 }
-
                     SSingleChipGroup(
                         title: "Distance",
                         options: SpotFilters.distanceOptions,
