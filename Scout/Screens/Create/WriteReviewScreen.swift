@@ -10,8 +10,9 @@ import CoreLocation
 struct WriteReviewScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: CreateReviewViewModel
+    @State private var showError = false
     /// Called after a successful submit so the flow can dismiss everything.
-    var onComplete: () -> Void = {}
+    var onComplete: () -> Void
 
     init(viewModel: CreateReviewViewModel, onComplete: @escaping () -> Void = {}) {
         _viewModel = State(initialValue: viewModel)
@@ -108,12 +109,23 @@ struct WriteReviewScreen: View {
             ) {
                 Task {
                     await viewModel.submit()
-                    if viewModel.phase == .success { onComplete() }
+                    switch viewModel.phase {
+                    case .success: onComplete()
+                    case .failed: showError = true
+                    default: break
+                    }
                 }
             }
         }
         .background(Color.sBackground)
         .toolbar(.hidden, for: .navigationBar)
+        .alert("Couldn't post your review", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            if case .failed(let message) = viewModel.phase {
+                Text(message)
+            }
+        }
     }
 }
 

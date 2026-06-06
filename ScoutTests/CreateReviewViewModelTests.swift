@@ -12,9 +12,10 @@ struct CreateReviewViewModelTests {
     private let coordinate = CLLocationCoordinate2D(latitude: 45.5152, longitude: -122.6784)
 
     private func makeVM(target: CreateReviewViewModel.Target = .newSpot(name: "Emerald Basin"),
-                        photoData: Data? = nil) -> CreateReviewViewModel {
+                        photoData: Data? = nil,
+                        service: SpotService = MockSpotService()) -> CreateReviewViewModel {
         CreateReviewViewModel(target: target, coordinate: coordinate,
-                              regionText: "Portland, USA", photoData: photoData)
+                              regionText: "Portland, USA", photoData: photoData, service: service)
     }
 
     // MARK: - Target / identity
@@ -178,8 +179,8 @@ struct CreateReviewViewModelTests {
 
     // MARK: - Submit lifecycle
 
-    @Test func submitSucceedsWhenValid() async {
-        let vm = makeVM(photoData: Data([0x1]))
+    @Test func submitNewSpotCallsServiceAndSucceeds() async {
+        let vm = makeVM(photoData: Data([0x1]), service: StubSpotService())   // .newSpot
         vm.draft.rating = 4
         await vm.submit()
         #expect(vm.phase == .success)
@@ -190,5 +191,49 @@ struct CreateReviewViewModelTests {
         // no photo → can't submit
         await vm.submit()
         #expect(vm.phase == .idle)
+    }
+
+    @Test func submitExistingSpotCallsServiceAndSucceeds() async {
+        let service = StubSpotService()
+        let vm = CreateReviewViewModel(target: .existingSpot(id: "1", name: "Cedar Cathedral"),
+                                       coordinate: coordinate, regionText: "Portland, USA",
+                                       photoData: Data([0x1]), service: service)
+        vm.draft.rating = 4
+        await vm.submit()
+        #expect(vm.phase == .success)
+    }
+
+    @Test func submitSetsFailedOnServiceError() async {
+        let service = StubSpotService(error: StubError.boom)
+        let vm = CreateReviewViewModel(target: .existingSpot(id: "1", name: "Cedar Cathedral"),
+                                       coordinate: coordinate, regionText: "Portland, USA",
+                                       photoData: Data([0x1]), service: service)
+        vm.draft.rating = 4
+        await vm.submit()
+        if case .failed = vm.phase {} else {
+            Issue.record("expected .failed phase, got \(vm.phase)")
+        }
+    }
+}
+
+// MARK: - Stub service
+
+private enum StubError: Error { case boom }
+
+private nonisolated struct StubSpotService: SpotService {
+    var review: Review = Review.samples[0]
+    var error: Error?
+
+    func fetchSpots(near region: SpotRegion?) async throws -> [SpotSummary] { [] }
+    func fetchSpotDetail(id: String) async throws -> SpotDetail { SpotDetail.sample }
+    func fetchReviews(spotID: String) async throws -> [Review] { [] }
+
+    func submitReview(spotID: String, payload: NewReviewPayload) async throws -> Review {
+        if let error { throw error }
+        return review
+    }
+    func submitNewSpot(payload: NewReviewPayload) async throws -> CreatedSpotReview {
+        if let error { throw error }
+        return CreatedSpotReview(spot: .sample, review: review)
     }
 }

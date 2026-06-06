@@ -48,6 +48,42 @@ nonisolated struct LiveSpotService: SpotService {
         return page.items
     }
 
+    func submitReview(spotID: String, payload: NewReviewPayload) async throws -> Review {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let body = try multipartBody(for: payload, boundary: boundary)
+
+        var request = URLRequest(url: baseURL.appending(path: "spots/\(spotID)/reviews"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("multipart/form-data; boundary=\(boundary)",
+                         forHTTPHeaderField: "Content-Type")
+        if let bearer = try await token() {
+            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = body
+
+        let (data, response) = try await session.data(for: request)
+        return try decode(Review.self, from: data, response: response)
+    }
+
+    func submitNewSpot(payload: NewReviewPayload) async throws -> CreatedSpotReview {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let body = try multipartBody(for: payload, boundary: boundary, includeSpotFields: true)
+
+        var request = URLRequest(url: baseURL.appending(path: "spots/with-review"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("multipart/form-data; boundary=\(boundary)",
+                         forHTTPHeaderField: "Content-Type")
+        if let bearer = try await token() {
+            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = body
+
+        let (data, response) = try await session.data(for: request)
+        return try decode(CreatedSpotReview.self, from: data, response: response)
+    }
+
     // MARK: - Request plumbing
 
     private func get<T: Decodable>(_ path: String, query: [String: String] = [:]) async throws -> T {
@@ -68,18 +104,114 @@ nonisolated struct LiveSpotService: SpotService {
         }
 
         let (data, response) = try await session.data(for: request)
+        return try decode(T.self, from: data, response: response)
+    }
+
+    /// Validates the HTTP status and decodes the body with the shared decoder.
+    private func decode<T: Decodable>(_ type: T.Type, from data: Data, response: URLResponse) throws -> T {
         guard let http = response as? HTTPURLResponse else {
             throw SpotServiceError.invalidResponse
         }
         guard (200..<300).contains(http.statusCode) else {
             throw SpotServiceError.http(status: http.statusCode)
         }
-
         do {
-            return try await JSONDecoder.scout.decode(T.self, from: data)
+            return try JSONDecoder.scout.decode(T.self, from: data)
         } catch {
             throw SpotServiceError.decoding(error)
         }
+    }
+
+    // MARK: - Multipart
+
+    /// Builds the `multipart/form-data` body for a review submission. Empty/nil
+    /// optionals are omitted (so the backend stores `None`, not `""`, and enum
+    /// fields never receive an invalid empty value).
+    ///
+    /// When `includeSpotFields` is true (the new-spot `/spots/with-review`
+    /// endpoint) the spot's `name`/`lat`/`lng` are prepended; otherwise they're
+    /// omitted (the existing-spot endpoint already knows the spot).
+    private func multipartBody(for payload: NewReviewPayload, boundary: String,
+                              includeSpotFields: Bool = false) throws -> Data {
+        var body = Data()
+
+        if includeSpotFields {
+            body.appendFormField("name", payload.name, boundary: boundary)
+            body.appendFormField("lat", String(payload.lat), boundary: boundary)
+            body.appendFormField("lng", String(payload.lng), boundary: boundary)
+        }
+
+        body.appendFormField("overall_rating", String(payload.overallRating), boundary: boundary)
+
+        if !payload.notes.isEmpty {
+            body.appendFormField("notes", payload.notes, boundary: boundary)
+        }
+        if !payload.gearRecommendations.isEmpty {
+            body.appendFormField("gear_recommendations", payload.gearRecommendations, boundary: boundary)
+        }
+        if !payload.compositionHints.isEmpty {
+            body.appendFormField("composition_hints", payload.compositionHints, boundary: boundary)
+        }
+        if let access = payload.accessLevel, !access.isEmpty {
+            body.appendFormField("access_level", access, boundary: boundary)
+        }
+        if let crowd = payload.crowdLevel, !crowd.isEmpty {
+            body.appendFormField("crowd_level", crowd, boundary: boundary)
+        }
+        if !payload.entranceFee.isEmpty {
+            body.appendFormField("entrance_fee", payload.entranceFee, boundary: boundary)
+        }
+
+        for value in payload.bestTimeOfDay {
+            body.appendFormField("best_time_of_day", value, boundary: boundary)
+        }
+        for value in payload.bestSeason {
+            body.appendFormField("best_season", value, boundary: boundary)
+        }
+
+        if let permit = payload.permitRequired {
+            body.appendFormField("permit_required", permit ? "true" : "false", boundary: boundary)
+        }
+        if let drone = payload.droneAllowed {
+            body.appendFormField("drone_allowed", drone ? "true" : "false", boundary: boundary)
+        }
+        if let tripod = payload.tripodAllowed {
+            body.appendFormField("tripod_allowed", tripod ? "true" : "false", boundary: boundary)
+        }
+
+        for (index, photo) in payload.photos.enumerated() {
+            guard let jpeg = photo.jpegForUpload() else {
+                throw SpotServiceError.imageEncoding
+            }
+            body.appendFileField("photos", filename: "photo-\(index).jpg",
+                                 mimeType: "image/jpeg", fileData: jpeg, boundary: boundary)
+        }
+
+        body.appendString("--\(boundary)--\r\n")
+        return body
+    }
+}
+
+// MARK: - Multipart encoding
+
+private extension Data {
+    nonisolated mutating func appendString(_ string: String) {
+        if let data = string.data(using: .utf8) { append(data) }
+    }
+
+    nonisolated mutating func appendFormField(_ name: String, _ value: String, boundary: String) {
+        appendString("--\(boundary)\r\n")
+        appendString("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
+        appendString("\(value)\r\n")
+    }
+
+    nonisolated mutating func appendFileField(_ name: String, filename: String,
+                                              mimeType: String, fileData: Data, boundary: String) {
+        appendString("--\(boundary)\r\n")
+        appendString("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n")
+        appendString("Content-Type: \(mimeType)\r\n\r\n")
+        append(fileData)
+        appendString("\r\n")
     }
 }
 
@@ -90,6 +222,7 @@ enum SpotServiceError: LocalizedError {
     case invalidResponse
     case http(status: Int)
     case decoding(Error)
+    case imageEncoding
 
     var errorDescription: String? {
         switch self {
@@ -97,6 +230,8 @@ enum SpotServiceError: LocalizedError {
             return "Couldn't build the request URL."
         case .invalidResponse:
             return "The server sent an unexpected response."
+        case .imageEncoding:
+            return "Couldn't prepare a photo for upload."
         case .http(let status) where status == 401:
             return "Your session expired. Please sign in again."
         case .http(let status):

@@ -7,7 +7,7 @@ import SwiftUI
 /// values and handles `onSeeSpot` / `onDone` / `onShare`. Once the create
 /// endpoint exists this gets fed from the saved `Spot` / `CreateReviewViewModel`.
 struct SuccessScreen: View {
-    var spotName: String
+    var spotName: String = "Altadena, CA"
     /// Human-readable place, e.g. "Altadena, CA".
     var place: String = ""
     /// Best time-of-day label appended after the place, e.g. "golden hour".
@@ -33,6 +33,7 @@ struct SuccessScreen: View {
             bottomBar
         }
         .background(Color.sBackground)
+        .navigationBarBackButtonHidden(true)
     }
 
     // MARK: - Header

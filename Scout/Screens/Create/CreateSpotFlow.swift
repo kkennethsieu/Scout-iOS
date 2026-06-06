@@ -106,7 +106,7 @@ private struct CreateFlowContainer: View {
     let review: CreateReviewViewModel
     var onFinish: () -> Void
 
-    private enum Step: Hashable { case review }
+    private enum Step: Hashable { case review, success }
     @State private var path: [Step] = []
 
     var body: some View {
@@ -117,7 +117,10 @@ private struct CreateFlowContainer: View {
             .navigationDestination(for: Step.self) { step in
                 switch step {
                 case .review:
-                    WriteReviewScreen(viewModel: review, onComplete: onFinish)
+                    WriteReviewScreen(viewModel: review, onComplete: {path.append(.success)
+                    })
+                case .success:
+                    SuccessScreen(onDone: onFinish)
                 }
             }
         }

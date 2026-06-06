@@ -92,7 +92,7 @@ struct CreateMapScreen: View {
     private var chrome: some View {
         VStack(spacing: 0) {
             SNavHeader(title: "Confirm Location")
-            STipBanner(message: "\(viewModel.banner.text)")
+            STipBanner(verbatim: viewModel.banner.text)
 
             HStack {
                 Spacer()

@@ -22,6 +22,14 @@ private struct StubSpotService: SpotService {
         if let error { throw error }
         return reviews
     }
+    func submitReview(spotID: String, payload: NewReviewPayload) async throws -> Review {
+        if let error { throw error }
+        return reviews.first ?? Review.samples[0]
+    }
+    func submitNewSpot(payload: NewReviewPayload) async throws -> CreatedSpotReview {
+        if let error { throw error }
+        return CreatedSpotReview(spot: detail, review: reviews.first ?? Review.samples[0])
+    }
 }
 
 private struct StubError: LocalizedError {

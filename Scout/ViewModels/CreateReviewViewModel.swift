@@ -61,6 +61,9 @@ final class CreateReviewViewModel {
 
     private(set) var phase: SubmitPhase = .idle
 
+    /// Backend dependency for submission. Injectable for tests/previews.
+    private let service: SpotService
+
     // MARK: - Options (ordered to match the mockup, not `allCases`)
 
     nonisolated static let timeOptions: [TimeOfDay] = [.goldenHour, .blueHour, .sunrise, .night, .midday]
@@ -72,11 +75,13 @@ final class CreateReviewViewModel {
     init(target: Target,
          coordinate: CLLocationCoordinate2D? = nil,
          regionText: String = "",
-         photoData: Data? = nil) {
+         photoData: Data? = nil,
+         service: SpotService = AppServices.spot) {
         self.target = target
         self.coordinate = coordinate
         self.regionText = regionText
         self.photos = Array((photoData.map { [$0] } ?? []).prefix(Self.maxPhotos))
+        self.service = service
     }
 
     // MARK: - Derived
@@ -191,10 +196,22 @@ final class CreateReviewViewModel {
     func submit() async {
         guard canSubmit else { return }
         phase = .submitting
-        // TODO: POST `makePayload()` as multipart/form-data once the endpoint is
-        // wired into SpotService. Stubbed success for now.
-        _ = makePayload()
-        phase = .success
+        do {
+            switch target {
+            case .existingSpot(let id, _):
+                // Wired: multipart POST /spots/{id}/reviews. The returned review
+                // is discarded for now — SuccessScreen is still fed from the draft.
+                _ = try await service.submitReview(spotID: id, payload: makePayload())
+            case .newSpot:
+                // Wired: multipart POST /spots/with-review. The backend
+                // reverse-geocodes the coordinate and returns {spot, review};
+                // discarded for now — SuccessScreen is still fed from the draft.
+                _ = try await service.submitNewSpot(payload: makePayload())
+            }
+            phase = .success
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
     }
 }
 
@@ -221,4 +238,14 @@ nonisolated struct NewReviewPayload: Equatable {
     let droneAllowed: Bool?
     let tripodAllowed: Bool?
     let photos: [Data]
+}
+
+// MARK: - Create response
+
+/// The decoded body of `POST /spots/with-review` — the backend's
+/// `SubmitReviewWithNewSpotResponse`, carrying the saved spot and its first
+/// review.
+nonisolated struct CreatedSpotReview: Decodable {
+    let spot: SpotDetail
+    let review: Review
 }

@@ -1,18 +1,31 @@
 import SwiftUI
 
 /// A compact informational callout: an SF Symbol + a short message on a tinted
-/// `sAccentSoft` surface. Reusable anywhere an inline tip/hint is needed (e.g.
-/// the review form's photo tip). The message supports markdown (`**bold**`).
+/// `sAccentSoft` surface. Reusable anywhere an inline tip/hint is needed (e.g. the
+/// review form's photo tip).
+///
+/// Use `init(message:)` for static copy (supports markdown / localization) and
+/// `init(verbatim:)` for dynamic runtime strings (e.g. view-model-provided text).
 struct STipBanner: View {
-    var icon: String = "lightbulb"
-    let message: LocalizedStringKey
+    let icon: String
+    private let text: Text
+
+    init(icon: String = "lightbulb", message: LocalizedStringKey) {
+        self.icon = icon
+        self.text = Text(message)
+    }
+
+    init(icon: String = "lightbulb", verbatim message: String) {
+        self.icon = icon
+        self.text = Text(verbatim: message)
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: Spacing.sm) {
             Image(systemName: icon)
                 .font(.system(size: 14))
                 .foregroundStyle(Color.sAccent)
-            Text(message)
+            text
                 .font(.sBodyS)
                 .foregroundStyle(Color.sTextSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -32,6 +45,7 @@ struct STipBanner: View {
         STipBanner(message: "**Tip:** High-resolution shots with natural lighting showcase spots best.")
         STipBanner(icon: "info.circle",
                    message: "Aggregate facts appear once a spot has three or more reviews.")
+        STipBanner(verbatim: "Couldn't read the location in this photo — drag your pin to where you took it.")
     }
     .padding(Spacing.lg)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
