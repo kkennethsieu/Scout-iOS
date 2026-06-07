@@ -158,8 +158,8 @@ nonisolated struct LiveSpotService: SpotService {
         if let crowd = payload.crowdLevel, !crowd.isEmpty {
             body.appendFormField("crowd_level", crowd, boundary: boundary)
         }
-        if !payload.entranceFee.isEmpty {
-            body.appendFormField("entrance_fee", payload.entranceFee, boundary: boundary)
+        if let fee = payload.entranceFee {
+            body.appendFormField("entrance_fee", String(fee), boundary: boundary)
         }
 
         for value in payload.bestTimeOfDay {

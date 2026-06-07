@@ -110,7 +110,7 @@ struct SpotModelTests {
             "review_count": 5, "avg_rating": 4.2,
             "recent_review_photos": [],
             "mode_access_level": "Moderate",
-            "mode_entrance_fee": "Free",
+            "avg_entrance_fee": 7.5,
             "mode_crowd_level": "Light",
             "best_times": ["GoldenHour", "BlueHour"],
             "best_seasons": ["Spring", "Fall"],
@@ -125,6 +125,8 @@ struct SpotModelTests {
         let detail = try JSONDecoder.scout.decode(SpotDetail.self, from: json)
 
         #expect(detail.modeAccessLevel == "Moderate")
+        #expect(detail.avgEntranceFee == 7.5)
+        #expect(detail.entranceFeeText == "$7.50")
         #expect(detail.seasons == [.spring, .fall])
         #expect(detail.shootingTimes == [.goldenHour, .blueHour])
         #expect(detail.modePermitRequired == false)
@@ -156,7 +158,8 @@ struct SpotModelTests {
         let detail = try JSONDecoder.scout.decode(SpotDetail.self, from: json)
 
         #expect(detail.modeAccessLevel == nil)
-        #expect(detail.modeEntranceFee == nil)
+        #expect(detail.avgEntranceFee == nil)
+        #expect(detail.entranceFeeText == "—")
         #expect(detail.modeCrowdLevel == nil)
         #expect(detail.modePermitRequired == nil)
         #expect(!detail.hasLogistics)
@@ -177,7 +180,7 @@ struct SpotModelTests {
             "best_time_of_day": ["GoldenHour"],
             "best_season": ["Spring", "Fall"],
             "access_level": "Moderate",
-            "entrance_fee": "Free",
+            "entrance_fee": 0,
             "crowd_level": "Light",
             "gear_recommendations": "Wide-angle",
             "composition_hints": "",
@@ -191,6 +194,7 @@ struct SpotModelTests {
         let review = try JSONDecoder.scout.decode(Review.self, from: json)
 
         #expect(review.overallRating == 5)
+        #expect(review.entranceFee == 0)
         #expect(review.times == [.goldenHour])
         #expect(review.seasons == [.spring, .fall])
         #expect(review.gearRecommendations == "Wide-angle")
@@ -236,7 +240,7 @@ struct SpotModelTests {
                     "best_time_of_day": ["Sunrise"],
                     "best_season": ["Summer"],
                     "access_level": "Easy",
-                    "entrance_fee": "Free",
+                    "entrance_fee": 12.5,
                     "crowd_level": "Light",
                     "gear_recommendations": null,
                     "composition_hints": null,

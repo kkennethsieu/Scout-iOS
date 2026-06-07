@@ -177,6 +177,20 @@ struct CreateReviewViewModelTests {
         #expect(payload.photos.count == 1)
     }
 
+    @Test func payloadParsesEntranceFee() {
+        let vm = makeVM(photoData: Data([0x9]))
+        vm.draft.rating = 5
+
+        vm.draft.entranceFee = "12.50"
+        #expect(vm.makePayload().entranceFee == 12.5)
+
+        vm.draft.entranceFee = ""           // unanswered
+        #expect(vm.makePayload().entranceFee == nil)
+
+        vm.draft.entranceFee = "abc"        // unparseable → nil
+        #expect(vm.makePayload().entranceFee == nil)
+    }
+
     // MARK: - Submit lifecycle
 
     @Test func submitNewSpotCallsServiceAndSucceeds() async {

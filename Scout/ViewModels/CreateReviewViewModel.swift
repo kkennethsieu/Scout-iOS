@@ -131,6 +131,13 @@ final class CreateReviewViewModel {
     /// one photo (`photo_urls` is required), a non-empty spot name within the
     /// length cap, and a valid coordinate (the spot's `lat`/`lng`). Everything
     /// else — including notes — is optional on the backend.
+    /// Parses the entered fee text into the backend's `Optional[float]`: empty or
+    /// unparseable → `nil` (unanswered).
+    nonisolated static func parseFee(_ text: String) -> Double? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? nil : Double(trimmed)
+    }
+
     nonisolated static func canSubmit(rating: Int, name: String, hasPhotos: Bool, hasLocation: Bool) -> Bool {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return (1...5).contains(rating)
@@ -182,7 +189,7 @@ final class CreateReviewViewModel {
             bestTimeOfDay: Self.timeOptions.filter { draft.times.contains($0) }.map(\.rawValue),
             bestSeason: Self.seasonOptions.filter { draft.seasons.contains($0) }.map(\.rawValue),
             accessLevel: draft.accessLevel,
-            entranceFee: draft.entranceFee,
+            entranceFee: Self.parseFee(draft.entranceFee),
             crowdLevel: draft.crowdLevel,
             gearRecommendations: draft.gear,
             compositionHints: draft.compositionHint,
@@ -230,7 +237,7 @@ nonisolated struct NewReviewPayload: Equatable {
     let bestTimeOfDay: [String]
     let bestSeason: [String]
     let accessLevel: String?
-    let entranceFee: String
+    let entranceFee: Double?
     let crowdLevel: String?
     let gearRecommendations: String
     let compositionHints: String

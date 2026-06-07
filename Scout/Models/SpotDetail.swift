@@ -16,7 +16,7 @@ nonisolated struct SpotDetail: Identifiable, Decodable, Hashable {
     let avgRating: Double
     let recentReviewPhotos: [RecentReviewPhoto]
     let modeAccessLevel: String?
-    let modeEntranceFee: String?
+    let avgEntranceFee: Double?
     let modeCrowdLevel: String?
     let bestTimes: [String]
     let bestSeasons: [String]
@@ -47,6 +47,13 @@ nonisolated struct SpotDetail: Identifiable, Decodable, Hashable {
     /// "Year-Round"; "—" when no seasons are known.
     var seasonsText: String {
         seasons.isEmpty ? "—" : seasons.map(\.label).joined(separator: ", ")
+    }
+
+    /// Average entrance fee for the Quick Facts pill: "—" when unknown, "Free"
+    /// when 0, otherwise a dollar amount.
+    var entranceFeeText: String {
+        guard let fee = avgEntranceFee else { return "—" }
+        return fee == 0 ? "Free" : String(format: "$%.2f", fee)
     }
 
     var heroPhotos: [URL] {
@@ -88,7 +95,7 @@ nonisolated extension SpotDetail {
                               createdAt: Date())
         ],
         modeAccessLevel: "Moderate",
-        modeEntranceFee: "Free",
+        avgEntranceFee: 0,
         modeCrowdLevel: "Moderate",
         bestTimes: ["GoldenHour", "BlueHour", "Sunrise"],
         bestSeasons: ["Spring", "Fall"],

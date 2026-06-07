@@ -23,7 +23,7 @@ struct ReviewDraft {
     var permitRequired: Bool? = nil
     var droneAllowed: Bool? = nil
     var tripodAllowed: Bool? = nil
-    // Free-text amount for now; "" is a natural empty. (Backend `entrance_fee` is
-    // actually an enum vocabulary — this field gets reworked when submission is wired.)
+    // Numeric amount as entered text ("" = unanswered). Parsed to `Double?` at the
+    // payload seam; backend `entrance_fee` is `Optional[float]` (≥ 0).
     var entranceFee: String = ""
 }

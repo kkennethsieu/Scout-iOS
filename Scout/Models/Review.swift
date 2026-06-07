@@ -15,7 +15,7 @@ nonisolated struct Review: Identifiable, Decodable, Hashable {
     let bestTimeOfDay: [String]
     let bestSeason: [String]
     let accessLevel: String?
-    let entranceFee: String?
+    let entranceFee: Double?
     let crowdLevel: String?
     let gearRecommendations: String?
     let compositionHints: String?
@@ -59,7 +59,7 @@ nonisolated extension Review {
             bestTimeOfDay: ["GoldenHour", "Sunrise"],
             bestSeason: ["Spring", "Fall"],
             accessLevel: "Moderate",
-            entranceFee: "Free",
+            entranceFee: 0,
             crowdLevel: "Moderate",
             gearRecommendations: "Wide-angle lens (16-35mm). ND filters for the water.",
             compositionHints: "Use the foreground rocks for depth.",
@@ -78,7 +78,7 @@ nonisolated extension Review {
             bestTimeOfDay: ["BlueHour"],
             bestSeason: ["Winter"],
             accessLevel: "Difficult",
-            entranceFee: "Free",
+            entranceFee: 0,
             crowdLevel: "Light",
             gearRecommendations: nil,
             compositionHints: nil,
