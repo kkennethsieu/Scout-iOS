@@ -5,8 +5,7 @@ import SwiftUI
 /// metadata subtitle below.
 struct SpotCard: View {
     let spot: SpotSummary
-    /// Placeholder distance string (e.g. "0.4 miles away") until real location
-    /// distance is wired.
+
     var distance: String?
     var isSaved: Bool = false
     var onTapSave: () -> Void = {}
@@ -25,79 +24,10 @@ struct SpotCard: View {
     // MARK: - Photo
 
     private var photo: some View {
-        carousel
-            .frame(maxWidth: .infinity)
-            .frame(height: 220)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+        PhotoCarousel(photos: photos)
             .overlay(alignment: .topTrailing) {
-                saveButton
-                    .padding(Spacing.md)
+                saveButton.padding(Spacing.md)
             }
-            .overlay(alignment: .bottom) {
-                if photos.count > 1 {
-                    pageDots
-                        .padding(.bottom, Spacing.md)
-                }
-            }
-    }
-
-    @ViewBuilder
-    private var carousel: some View {
-        if photos.isEmpty {
-            photoPlaceholder
-        } else if photos.count == 1 {
-            asyncPhoto(photos[0])
-        } else {
-            TabView(selection: $page) {
-                ForEach(Array(photos.enumerated()), id: \.offset) { index, url in
-                    asyncPhoto(url).tag(index)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-        }
-    }
-
-    private func asyncPhoto(_ url: URL) -> some View {
-        // Size from a flexible Color and overlay the image, so a loaded photo's
-        // native dimensions can't drive the card wider than its container.
-        Color.sBorderSubtle
-            .overlay {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    case .failure:
-                        photoPlaceholder
-                    case .empty:
-                        ProgressView()
-                    @unknown default:
-                        photoPlaceholder
-                    }
-                }
-            }
-            .clipped()
-    }
-
-    private var photoPlaceholder: some View {
-        ZStack {
-            Color.sAccentSoft
-            Image(systemName: "photo")
-                .font(.system(size: 28))
-                .foregroundStyle(Color.sTextTertiary)
-        }
-    }
-
-    private var pageDots: some View {
-        HStack(spacing: Spacing.xs) {
-            ForEach(photos.indices, id: \.self) { index in
-                Circle()
-                    .fill(.white.opacity(index == page ? 1 : 0.5))
-                    .frame(width: 6, height: 6)
-            }
-        }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 6)
-        .background(.black.opacity(0.25), in: Capsule())
     }
 
     private var saveButton: some View {

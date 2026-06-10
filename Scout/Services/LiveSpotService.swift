@@ -7,12 +7,8 @@ import Foundation
 /// - `GET /spots/{id}` → `SpotResponse` (full aggregates)
 /// - `GET /spots/{id}/reviews` → `PaginatedReviews` envelope
 nonisolated struct LiveSpotService: SpotService {
-    /// Backend base URL. Defaults to the local dev server on port 8000.
-    var baseURL = URL(string: "http://localhost:8000")!
-    var session: URLSession = .shared
-
-    /// Supplies the Firebase ID token for the `Authorization: Bearer` header.
-    var token: @MainActor () async throws -> String? = { try await AuthService.shared.idToken() }
+    /// Shared backend plumbing (base URL, session, Bearer token, GET/decode).
+    var client = BackendClient()
 
     /// Placeholder query center + radius until CoreLocation is wired. `/spots`
     /// requires a point and radius; these cover the sample-data region for now.
@@ -27,7 +23,7 @@ nonisolated struct LiveSpotService: SpotService {
         let area = region ?? SpotRegion(latitude: latitude,
                                         longitude: longitude,
                                         radiusKm: radiusKm)
-        return try await get("spots", query: [
+        return try await client.get("spots", query: [
             "lat": "\(area.latitude)",
             "lng": "\(area.longitude)",
             "radius_km": "\(area.radiusKm)",
@@ -36,13 +32,13 @@ nonisolated struct LiveSpotService: SpotService {
     }
 
     func fetchSpotDetail(id: String) async throws -> SpotDetail {
-        try await get("spots/\(id)")
+        try await client.get("spots/\(id)")
     }
 
     func fetchReviews(spotID: String) async throws -> [Review] {
         // Returns the first page; cursor pagination can be layered on once the
         // full reviews screen exists.
-        let page: PaginatedReviews = try await get("spots/\(spotID)/reviews", query: [
+        let page: PaginatedReviews = try await client.get("spots/\(spotID)/reviews", query: [
             "limit": "\(limit)"
         ])
         return page.items
@@ -52,74 +48,36 @@ nonisolated struct LiveSpotService: SpotService {
         let boundary = "Boundary-\(UUID().uuidString)"
         let body = try multipartBody(for: payload, boundary: boundary)
 
-        var request = URLRequest(url: baseURL.appending(path: "spots/\(spotID)/reviews"))
+        var request = URLRequest(url: client.baseURL.appending(path: "spots/\(spotID)/reviews"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("multipart/form-data; boundary=\(boundary)",
                          forHTTPHeaderField: "Content-Type")
-        if let bearer = try await token() {
+        if let bearer = try await client.token() {
             request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         }
         request.httpBody = body
 
-        let (data, response) = try await session.data(for: request)
-        return try decode(Review.self, from: data, response: response)
+        let (data, response) = try await client.session.data(for: request)
+        return try client.decode(Review.self, from: data, response: response)
     }
 
     func submitNewSpot(payload: NewReviewPayload) async throws -> CreatedSpotReview {
         let boundary = "Boundary-\(UUID().uuidString)"
         let body = try multipartBody(for: payload, boundary: boundary, includeSpotFields: true)
 
-        var request = URLRequest(url: baseURL.appending(path: "spots/with-review"))
+        var request = URLRequest(url: client.baseURL.appending(path: "spots/with-review"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("multipart/form-data; boundary=\(boundary)",
                          forHTTPHeaderField: "Content-Type")
-        if let bearer = try await token() {
+        if let bearer = try await client.token() {
             request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         }
         request.httpBody = body
 
-        let (data, response) = try await session.data(for: request)
-        return try decode(CreatedSpotReview.self, from: data, response: response)
-    }
-
-    // MARK: - Request plumbing
-
-    private func get<T: Decodable>(_ path: String, query: [String: String] = [:]) async throws -> T {
-        var components = URLComponents(
-            url: baseURL.appending(path: path),
-            resolvingAgainstBaseURL: false
-        )
-        if !query.isEmpty {
-            components?.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
-        }
-        guard let url = components?.url else { throw SpotServiceError.invalidURL }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let bearer = try await token() {
-            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
-        }
-
-        let (data, response) = try await session.data(for: request)
-        return try decode(T.self, from: data, response: response)
-    }
-
-    /// Validates the HTTP status and decodes the body with the shared decoder.
-    private func decode<T: Decodable>(_ type: T.Type, from data: Data, response: URLResponse) throws -> T {
-        guard let http = response as? HTTPURLResponse else {
-            throw SpotServiceError.invalidResponse
-        }
-        guard (200..<300).contains(http.statusCode) else {
-            throw SpotServiceError.http(status: http.statusCode)
-        }
-        do {
-            return try JSONDecoder.scout.decode(T.self, from: data)
-        } catch {
-            throw SpotServiceError.decoding(error)
-        }
+        let (data, response) = try await client.session.data(for: request)
+        return try client.decode(CreatedSpotReview.self, from: data, response: response)
     }
 
     // MARK: - Multipart

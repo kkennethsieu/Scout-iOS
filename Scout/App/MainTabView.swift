@@ -28,7 +28,7 @@ struct MainTabView: View {
             tabContent(.explore) { ExploreScreen() }
             tabContent(.map) { MapScreen() }
             tabContent(.saved) { SavedView() }
-            tabContent(.profile) { ProfileView() }
+            tabContent(.profile) { ProfileScreen(isActive: selection == .profile) }
         }
     }
 
@@ -55,44 +55,3 @@ struct SavedView: View {
     }
 }
 
-struct ProfileView: View {
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.sBackground.ignoresSafeArea()
-                Text("Profile").font(.sHeadingM).foregroundStyle(Color.sTextPrimary)
-                SignedInPlaceholder()
-            }
-            .navigationTitle("Profile")
-        }
-    }
-}
-
-private struct SignedInPlaceholder: View {
-    @Environment(AuthService.self) private var auth
-    
-    var body: some View {
-        ZStack {
-            Color.sBackground.ignoresSafeArea()
-            VStack(spacing: Spacing.lg) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 60))
-                    .foregroundStyle(Color.sAccent)
-                
-                Text("Signed in as")
-                    .font(.sBodyL)
-                    .foregroundStyle(Color.sTextSecondary)
-                
-                Text(auth.currentUser?.email ?? auth.currentUser?.displayName ?? "Unknown")
-                    .font(.sHeadingM)
-                    .foregroundStyle(Color.sTextPrimary)
-                
-                SPrimaryButton(title: "Sign out") {
-                    try? auth.signOut()
-                }
-                .padding(.top, Spacing.xl)
-                .padding(.horizontal, Spacing.lg)
-            }
-        }
-    }
-}

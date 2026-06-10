@@ -61,6 +61,13 @@ final class CreateReviewViewModel {
 
     private(set) var phase: SubmitPhase = .idle
 
+    /// The saved spot from a successful **new-spot** submission. Nil for
+    /// existing-spot reviews (that endpoint returns only a review) — the success
+    /// screen falls back to the target/region in that case.
+    private(set) var createdSpot: SpotDetail?
+    /// The saved review from a successful submission (both paths return one).
+    private(set) var createdReview: Review?
+
     /// Backend dependency for submission. Injectable for tests/previews.
     private let service: SpotService
 
@@ -124,6 +131,27 @@ final class CreateReviewViewModel {
         }
         return "Add a rating to post."
     }
+
+    // MARK: - Result (populated after a successful submit)
+
+    /// The created/edited spot's id — used by the success screen's Save button
+    /// and "See your spot". From the saved spot (new) or the target (existing).
+    var resultSpotID: String? {
+        if let id = createdSpot?.id { return id }
+        if case .existingSpot(let id, _) = target { return id }
+        return nil
+    }
+
+    /// Human-readable place for the success card — the backend's geocoded
+    /// "City, ST" for a new spot, falling back to the map step's region text.
+    var resultPlace: String {
+        if let spot = createdSpot, !spot.locality.isEmpty { return spot.locality }
+        return regionText
+    }
+
+    /// The just-submitted photos, shown instantly on the success card from the
+    /// local bytes — no round-trip to the freshly-uploaded URLs.
+    var resultPhotos: [Data] { photos }
 
     // MARK: - Pure logic (unit-tested)
 
@@ -206,14 +234,14 @@ final class CreateReviewViewModel {
         do {
             switch target {
             case .existingSpot(let id, _):
-                // Wired: multipart POST /spots/{id}/reviews. The returned review
-                // is discarded for now — SuccessScreen is still fed from the draft.
-                _ = try await service.submitReview(spotID: id, payload: makePayload())
+                // multipart POST /spots/{id}/reviews → the saved review.
+                createdReview = try await service.submitReview(spotID: id, payload: makePayload())
             case .newSpot:
-                // Wired: multipart POST /spots/with-review. The backend
-                // reverse-geocodes the coordinate and returns {spot, review};
-                // discarded for now — SuccessScreen is still fed from the draft.
-                _ = try await service.submitNewSpot(payload: makePayload())
+                // multipart POST /spots/with-review → the backend reverse-geocodes
+                // the coordinate and returns {spot, review}.
+                let result = try await service.submitNewSpot(payload: makePayload())
+                createdSpot = result.spot
+                createdReview = result.review
             }
             phase = .success
         } catch {

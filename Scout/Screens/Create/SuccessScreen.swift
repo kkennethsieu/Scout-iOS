@@ -10,11 +10,14 @@ struct SuccessScreen: View {
     var spotName: String = "Altadena, CA"
     /// Human-readable place, e.g. "Altadena, CA".
     var place: String = ""
-    /// Best time-of-day label appended after the place, e.g. "golden hour".
-    var timeOfDay: String? = nil
     var rating: Int = 5
+    /// The just-submitted photos as local bytes — shown instantly, no network.
     var photos: [Data] = []
+    /// New spot vs. a review on an existing spot — switches the header copy.
+    var isNewSpot: Bool = true
 
+    var isSaved: Bool = false
+    var onTapSave: () -> Void = {}
     var onSeeSpot: () -> Void = {}
     var onDone: () -> Void = {}
     var onShare: (ShareDestination) -> Void = { _ in }
@@ -52,11 +55,12 @@ struct SuccessScreen: View {
                 .accessibilityHidden(true)
 
             VStack(spacing: Spacing.xs) {
-                Text("Your spot is live")
+                Text(isNewSpot ? "Your spot is live" : "Review posted")
                     .font(.sDisplayM)
                     .foregroundStyle(Color.sTextPrimary)
 
-                Text("Other shooters can find it now")
+                Text(isNewSpot ? "Other shooters can find it now"
+                               : "Thanks for adding to this spot")
                     .font(.sBody)
                     .foregroundStyle(Color.sTextSecondary)
             }
@@ -79,43 +83,23 @@ struct SuccessScreen: View {
         }
         .shadow(color: .black.opacity(0.05), radius: 12, y: 4)
     }
-
     private var photo: some View {
-        // Color base + overlaid image + clip so a decoded photo's native size
-        // can't stretch the card wider than its container.
-        Color.sAccentSoft
-            .frame(height: 200)
-            .frame(maxWidth: .infinity)
-            .overlay {
-                if let image = photos.first.flatMap(Image.init(data:)) {
-                    image.resizable().scaledToFill()
-                } else {
-                    Image(systemName: "photo")
-                        .font(.system(size: 28))
-                        .foregroundStyle(Color.sTextTertiary)
-                }
-            }
-            .clipped()
-            .overlay(alignment: .topLeading) {
-                SBadge("Just Added")
-                    .padding(Spacing.md)
-            }
-            .overlay(alignment: .bottom) {
-                if photos.count > 1 {
-                    pageDots
-                        .padding(.bottom, Spacing.md)
-                }
+        PhotoCarousel(photos: photos)
+            .overlay(alignment: .topTrailing) {
+                saveButton.padding(Spacing.md)
             }
     }
 
-    private var pageDots: some View {
-        HStack(spacing: Spacing.xs) {
-            ForEach(photos.indices, id: \.self) { _ in
-                Circle()
-                    .fill(.white.opacity(0.5))
-                    .frame(width: 6, height: 6)
-            }
+    private var saveButton: some View {
+        Button(action: onTapSave) {
+            Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(.black.opacity(0.35), in: Circle())
         }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.impact(weight: .light), trigger: isSaved)
     }
 
     private var cardInfo: some View {
@@ -136,7 +120,7 @@ struct SuccessScreen: View {
                 Image(systemName: "mappin")
                     .font(.system(size: 13))
                     .foregroundStyle(Color.sTextSecondary)
-                Text(subtitle)
+                Text(place)
                     .font(.sBody)
                     .foregroundStyle(Color.sTextSecondary)
                     .lineLimit(1)
@@ -144,13 +128,6 @@ struct SuccessScreen: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.lg)
-    }
-
-    private var subtitle: String {
-        [place, timeOfDay]
-            .compactMap { $0 }
-            .filter { !$0.isEmpty }
-            .joined(separator: " • ")
     }
 
     // MARK: - Share
@@ -247,7 +224,6 @@ nonisolated enum ShareDestination: String, CaseIterable, Identifiable {
     SuccessScreen(
         spotName: "Eaton Canyon Falls",
         place: "Altadena, CA",
-        timeOfDay: "golden hour",
         rating: 5
     )
 }
@@ -256,7 +232,6 @@ nonisolated enum ShareDestination: String, CaseIterable, Identifiable {
     SuccessScreen(
         spotName: "Eaton Canyon Falls",
         place: "Altadena, CA",
-        timeOfDay: "golden hour",
         rating: 5
     )
     .preferredColorScheme(.dark)

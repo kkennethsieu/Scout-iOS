@@ -306,7 +306,7 @@ struct SpotModelTests {
 
     @Test func reviewTimesDropsUnknownValues() {
         let review = Review(
-            id: "r", spotId: "s", userId: "u", photoUrls: [],
+            id: "r", spotId: "s", spotName: nil, userId: "u", photoUrls: [],
             overallRating: 5, notes: nil,
             bestTimeOfDay: ["Sunrise", "garbage", "BlueHour"],
             bestSeason: ["Spring", "garbage", "YearRound"],

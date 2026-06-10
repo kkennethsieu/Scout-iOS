@@ -29,10 +29,31 @@ struct CreateSpotFlow: ViewModifier {
         let review: CreateReviewViewModel
     }
 
+    /// Carries the submitted review to the success cover (it has everything the
+    /// success screen shows — name, place, photos, spot id).
+    private struct SuccessRoute: Identifiable {
+        let id = UUID()
+        let review: CreateReviewViewModel
+    }
+
+    /// Carries the saved spot id to the detail cover.
+    private struct DetailRoute: Identifiable {
+        let id = UUID()
+        let spotID: String
+    }
+
     /// Captured on the user's choice; the map is presented from the entry
     /// sheet's `onDismiss` so the two presentations don't overlap.
     @State private var pending: MapRoute?
     @State private var route: MapRoute?
+    /// Each step is dismissed before the next is presented (promoted in the
+    /// previous cover's `onDismiss`), so the flow reads as real screen
+    /// transitions — slide the form away, then bring the success screen up — not
+    /// an in-place swap.
+    @State private var pendingSuccess: SuccessRoute?
+    @State private var success: SuccessRoute?
+    @State private var pendingDetail: DetailRoute?
+    @State private var detail: DetailRoute?
     /// Warmed up while the entry sheet is open so the current location is ready
     /// the moment the user taps "use my current location".
     @State private var location = LocationManager()
@@ -54,13 +75,25 @@ struct CreateSpotFlow: ViewModifier {
                 )
                 .onAppear { location.start() }
             }
-            .fullScreenCover(item: $route) { route in
+            .fullScreenCover(item: $route, onDismiss: presentSuccessIfPending) { route in
                 CreateFlowContainer(
                     entry: route.entry,
                     photoData: route.photoData,
                     review: route.review,
-                    onFinish: { self.route = nil }
+                    onSucceeded: { succeed(review: route.review) }
                 )
+            }
+            .fullScreenCover(item: $success, onDismiss: presentDetailIfPending) { route in
+                SuccessHost(
+                    review: route.review,
+                    onSeeSpot: { seeSpot(review: route.review) },
+                    onDone: { self.success = nil }
+                )
+            }
+            .fullScreenCover(item: $detail) { route in
+                NavigationStack {
+                    SpotDetailScreen(spotID: route.spotID)
+                }
             }
     }
 
@@ -80,6 +113,37 @@ struct CreateSpotFlow: ViewModifier {
         self.pending = nil
     }
 
+    // MARK: - Success / detail hand-offs
+
+    /// The review submitted: dismiss the form cover, then present success once
+    /// it's fully gone (via the cover's `onDismiss`).
+    private func succeed(review: CreateReviewViewModel) {
+        pendingSuccess = SuccessRoute(review: review)
+        route = nil
+    }
+
+    private func presentSuccessIfPending() {
+        guard let pendingSuccess else { return }
+        success = pendingSuccess
+        self.pendingSuccess = nil
+    }
+
+    /// "See your spot": dismiss the success cover, then present the spot detail
+    /// once it's gone. With no saved id (shouldn't happen on success) the flow
+    /// just closes.
+    private func seeSpot(review: CreateReviewViewModel) {
+        if let id = review.resultSpotID {
+            pendingDetail = DetailRoute(spotID: id)
+        }
+        success = nil
+    }
+
+    private func presentDetailIfPending() {
+        guard let pendingDetail else { return }
+        detail = pendingDetail
+        self.pendingDetail = nil
+    }
+
     /// Seeds the accumulator with the photo and the entry's tentative coordinate;
     /// the target/name and final coordinate are filled by the later steps.
     private static func makeReview(entry: CreateMapViewModel.Entry,
@@ -97,16 +161,20 @@ struct CreateSpotFlow: ViewModifier {
 
 // MARK: - Navigation container
 
-/// Hosts the post-entry steps in a single `NavigationStack` so there's one back
-/// stack: `CreateMapScreen` is the root and `WriteReviewScreen` is pushed. The
-/// Name Picker stays a sheet on the map; picking a name pushes the form.
+/// Hosts the post-entry steps in a `NavigationStack` so there's one back stack:
+/// `CreateMapScreen` is the root and `WriteReviewScreen` is pushed. The Name
+/// Picker stays a sheet on the map; picking a name pushes the form. A successful
+/// submit (`review.phase == .success`) calls `onSucceeded`, which dismisses this
+/// cover and hands off to the success screen.
 private struct CreateFlowContainer: View {
     let entry: CreateMapViewModel.Entry
     let photoData: Data?
     let review: CreateReviewViewModel
-    var onFinish: () -> Void
+    /// Fired once the review submits successfully so the flow can dismiss this
+    /// cover and present the success screen.
+    var onSucceeded: () -> Void
 
-    private enum Step: Hashable { case review, success }
+    private enum Step: Hashable { case review }
     @State private var path: [Step] = []
 
     var body: some View {
@@ -117,12 +185,39 @@ private struct CreateFlowContainer: View {
             .navigationDestination(for: Step.self) { step in
                 switch step {
                 case .review:
-                    WriteReviewScreen(viewModel: review, onComplete: {path.append(.success)
-                    })
-                case .success:
-                    SuccessScreen(onDone: onFinish)
+                    WriteReviewScreen(viewModel: review)
                 }
             }
         }
+        .onChange(of: review.phase) { _, phase in
+            if phase == .success { onSucceeded() }
+        }
+    }
+}
+
+// MARK: - Success host
+
+/// Hosts `SuccessScreen` and owns its local-only Save toggle (a cover's content
+/// closure can't hold `@State`). There's no save endpoint yet — the Saved tab is
+/// a placeholder; `review.resultSpotID` is the key for when one lands.
+private struct SuccessHost: View {
+    let review: CreateReviewViewModel
+    var onSeeSpot: () -> Void
+    var onDone: () -> Void
+
+    @State private var isSaved = false
+
+    var body: some View {
+        SuccessScreen(
+            spotName: review.spotName,
+            place: review.resultPlace,
+            rating: review.draft.rating,
+            photos: review.resultPhotos,
+            isNewSpot: review.isNewSpot,
+            isSaved: isSaved,
+            onTapSave: { isSaved.toggle() },
+            onSeeSpot: onSeeSpot,
+            onDone: onDone
+        )
     }
 }

@@ -228,6 +228,39 @@ struct CreateReviewViewModelTests {
             Issue.record("expected .failed phase, got \(vm.phase)")
         }
     }
+
+    // MARK: - Result accessors (feed the success screen)
+
+    @Test func newSpotResultUsesSavedSpot() async {
+        // StubSpotService returns SpotDetail.sample (id "1", "Cascade Range, WA").
+        let vm = makeVM(photoData: Data([0x1]), service: StubSpotService())   // .newSpot
+        vm.draft.rating = 4
+        await vm.submit()
+        #expect(vm.createdSpot?.id == "1")
+        #expect(vm.createdReview != nil)
+        #expect(vm.resultSpotID == "1")
+        #expect(vm.resultPlace == "Cascade Range, WA")   // backend-geocoded locality
+        #expect(vm.resultPhotos == [Data([0x1])])         // local bytes, instant
+    }
+
+    @Test func existingSpotResultFallsBackToTargetAndRegion() async {
+        let vm = CreateReviewViewModel(target: .existingSpot(id: "42", name: "Cedar Cathedral"),
+                                       coordinate: coordinate, regionText: "Portland, USA",
+                                       photoData: Data([0x1]), service: StubSpotService())
+        vm.draft.rating = 4
+        await vm.submit()
+        #expect(vm.createdSpot == nil)                    // existing-spot endpoint returns no spot
+        #expect(vm.createdReview != nil)
+        #expect(vm.resultSpotID == "42")                  // from the target
+        #expect(vm.resultPlace == "Portland, USA")        // falls back to the map region
+    }
+
+    @Test func resultsAreEmptyBeforeSubmit() {
+        let vm = makeVM(photoData: Data([0x1]))
+        #expect(vm.createdSpot == nil)
+        #expect(vm.createdReview == nil)
+        #expect(vm.resultSpotID == nil)                   // .newSpot, nothing saved yet
+    }
 }
 
 // MARK: - Stub service

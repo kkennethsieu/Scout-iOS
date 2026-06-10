@@ -16,4 +16,12 @@ enum AppServices {
         MockSpotService()
         #endif
     }
+
+    static var user: UserService {
+        #if targetEnvironment(simulator)
+        LiveUserService()
+        #else
+        MockUserService()
+        #endif
+    }
 }

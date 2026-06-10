@@ -5,18 +5,16 @@ import CoreLocation
 /// kit (`SSection`, `SMultiChipGroup`, `STextArea`, `SStarRating`, …) plus a few
 /// local pieces (`ReviewLocationHeader`, `PhotoPickerField`). Backed by the flow's
 /// `CreateReviewViewModel`. Pushed onto the flow's NavigationStack, so
-/// back/"Change location" pops to the map; a successful submit calls `onComplete`
-/// to tear down the whole flow.
+/// back/"Change location" pops to the map. A successful submit flips
+/// `viewModel.phase` to `.success`; the flow container observes that and swaps in
+/// the success screen, so this view only needs to surface a failure.
 struct WriteReviewScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: CreateReviewViewModel
     @State private var showError = false
-    /// Called after a successful submit so the flow can dismiss everything.
-    var onComplete: () -> Void
 
-    init(viewModel: CreateReviewViewModel, onComplete: @escaping () -> Void = {}) {
+    init(viewModel: CreateReviewViewModel) {
         _viewModel = State(initialValue: viewModel)
-        self.onComplete = onComplete
     }
 
     var body: some View {
@@ -109,11 +107,9 @@ struct WriteReviewScreen: View {
             ) {
                 Task {
                     await viewModel.submit()
-                    switch viewModel.phase {
-                    case .success: onComplete()
-                    case .failed: showError = true
-                    default: break
-                    }
+                    // Success is handled by the flow container (it observes
+                    // `phase`); here we only need to surface a failure.
+                    if case .failed = viewModel.phase { showError = true }
                 }
             }
         }
