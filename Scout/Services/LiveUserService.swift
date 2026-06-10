@@ -18,4 +18,8 @@ nonisolated struct LiveUserService: UserService {
         if let cursor { query["cursor"] = cursor }
         return try await client.get("users/me/reviews", query: query)
     }
+
+    func deleteReview(id: String) async throws {
+        try await client.delete("reviews/\(id)")
+    }
 }

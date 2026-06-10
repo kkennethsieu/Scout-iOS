@@ -10,7 +10,9 @@ nonisolated struct UserProfile: Decodable, Hashable, Identifiable {
     let homeCity: String?
     let homeCountry: String?
     let photoUrl: URL?
-    let reviewCount: Int
+    /// `var` (not `let`) so the client can adjust it locally — e.g. decrement on a
+    /// successful review delete — without refetching the whole profile.
+    var reviewCount: Int
 }
 
 // MARK: - Sample data

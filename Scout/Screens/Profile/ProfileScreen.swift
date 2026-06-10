@@ -11,36 +11,72 @@ struct ProfileScreen: View {
     /// the profile doc + reviews, so the count stays fresh each time it's shown.
     var isActive: Bool
 
+    /// The review the user tapped "Delete" on; presenting the confirmation dialog.
+    @State private var reviewPendingDeletion: Review?
+
     init(isActive: Bool = true, viewModel: ProfileViewModel = ProfileViewModel()) {
         self.isActive = isActive
         _viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                ProfileHeader(profile: viewModel.profile)
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 0) {
+                    ProfileHeader(profile: viewModel.profile)
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.top, Spacing.sm)
+
+                    SSegmentedControl(
+                        options: ProfileViewModel.Tab.allCases,
+                        selection: $viewModel.selectedTab,
+                        label: \.title
+                    )
                     .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.sm)
+                    .padding(.top, Spacing.lg)
 
-                SSegmentedControl(
-                    options: ProfileViewModel.Tab.allCases,
-                    selection: $viewModel.selectedTab,
-                    label: \.title
-                )
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.lg)
-
-                tabContent
-                    .padding(Spacing.lg)
+                    tabContent
+                        .padding(Spacing.lg)
+                }
+            }
+            .background(Color.sBackground)
+            .refreshable { await viewModel.load() }
+            .safeAreaInset(edge: .top, spacing: 0) { topBar }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: String.self) { spotID in
+                SpotDetailScreen(spotID: spotID)
             }
         }
-        .background(Color.sBackground)
-        .safeAreaInset(edge: .top, spacing:0){ topBar }
-        .refreshable { await viewModel.load() }
         .task(id: isActive) {
             // Refetch whenever the Profile tab becomes the active one.
             if isActive { await viewModel.load() }
+        }
+        .confirmationDialog(
+            "Delete this review?",
+            isPresented: Binding(
+                get: { reviewPendingDeletion != nil },
+                set: { if !$0 { reviewPendingDeletion = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: reviewPendingDeletion
+        ) { review in
+            Button("Delete", role: .destructive) {
+                Task { await viewModel.deleteReview(review) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { review in
+            Text("This permanently removes your review\(review.spotName.map { " of \($0)" } ?? "").")
+        }
+        .alert(
+            "Couldn't delete review",
+            isPresented: Binding(
+                get: { viewModel.deleteError != nil },
+                set: { if !$0 { viewModel.dismissDeleteError() } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(viewModel.deleteError ?? "")
         }
     }
 
@@ -116,7 +152,11 @@ struct ProfileScreen: View {
     private var reviewsList: some View {
         VStack(spacing: Spacing.lg) {
             ForEach(viewModel.reviews) { review in
-                ProfileReviewCard(review: review)
+                ProfileReviewCard(
+                    review: review,
+                    isDeleting: viewModel.deletingReviewID == review.id,
+                    onDelete: { reviewPendingDeletion = review }
+                )
                     .onAppear {
                         // Reached the last card — pull the next page.
                         if review.id == viewModel.reviews.last?.id {

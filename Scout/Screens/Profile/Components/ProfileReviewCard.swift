@@ -6,8 +6,16 @@ import SwiftUI
 /// review with no photos/notes collapses to just name + date.
 struct ProfileReviewCard: View {
     let review: Review
+    /// A delete is in flight for this review — dims the card and shows a spinner.
+    var isDeleting: Bool = false
     var onEdit: () -> Void = {}
     var onDelete: () -> Void = {}
+
+    /// Notes collapse to this many lines; "See more" appears only when the full
+    /// text exceeds it.
+    private let notesLineLimit = 2
+    @State private var fullNotesHeight: CGFloat = 0
+    @State private var clampedNotesHeight: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,15 +26,21 @@ struct ProfileReviewCard: View {
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(spacing: Spacing.sm) {
-                    Text(review.spotName ?? "Spot")
-                        .font(.sHeadingM)
-                        .foregroundStyle(Color.sTextPrimary)
-                        .lineLimit(1)
+                    // Tapping the spot name opens its detail (resolved from spotId).
+                    NavigationLink(value: review.spotId) {
+                        Text(review.spotName ?? "Spot")
+                            .font(.sHeadingM)
+                            .foregroundStyle(Color.sTextPrimary)
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
 
                     Spacer(minLength: Spacing.sm)
 
                     optionsMenu
                 }
+
+                locationRow
 
                 Text(dateText)
                     .font(.sBodyS)
@@ -47,6 +61,23 @@ struct ProfileReviewCard: View {
             RoundedRectangle(cornerRadius: Radius.lg)
                 .stroke(Color.sBorderSubtle, lineWidth: 1)
         )
+        .overlay { deletingOverlay }
+        .disabled(isDeleting)
+        .animation(.easeInOut(duration: 0.15), value: isDeleting)
+    }
+
+    // MARK: - Deleting overlay
+
+    @ViewBuilder
+    private var deletingOverlay: some View {
+        if isDeleting {
+            RoundedRectangle(cornerRadius: Radius.lg)
+                .fill(Color.sSurface.opacity(0.6))
+                .overlay {
+                    ProgressView()
+                        .tint(Color.sAccent)
+                }
+        }
     }
 
     // MARK: - Options menu
@@ -63,6 +94,21 @@ struct ProfileReviewCard: View {
                 .contentShape(Rectangle())
         }
         .accessibilityLabel("Review options")
+    }
+
+    // MARK: - Location
+
+    /// The spot's public city + admin area ("Seattle, WA"), denormalized onto the
+    /// review. Always present from the backend.
+    private var locationRow: some View {
+        Label {
+            Text("\(review.city), \(review.adminArea)")
+        } icon: {
+            Image(systemName: "mappin.and.ellipse")
+        }
+        .font(.sBodyS)
+        .foregroundStyle(Color.sTextSecondary)
+        .lineLimit(1)
     }
 
     // MARK: - Rating
@@ -84,17 +130,45 @@ struct ProfileReviewCard: View {
             Text(notes)
                 .font(.sBody)
                 .foregroundStyle(Color.sTextSecondary)
-                .lineLimit(2)
+                .lineLimit(notesLineLimit)
                 .fixedSize(horizontal: false, vertical: true)
+                .background {
+                    // Measure the same text unconstrained; if it's taller than the
+                    // clamped version, the notes overflow and need "See more".
+                    Text(notes)
+                        .font(.sBody)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .hidden()
+                        .background {
+                            GeometryReader { proxy in
+                                Color.clear.preference(key: FullHeightKey.self, value: proxy.size.height)
+                            }
+                        }
+                }
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: ClampedHeightKey.self, value: proxy.size.height)
+                    }
+                }
+                .onPreferenceChange(FullHeightKey.self) { fullNotesHeight = $0 }
+                .onPreferenceChange(ClampedHeightKey.self) { clampedNotesHeight = $0 }
 
-            // Stubbed for now — opens the full review once wired.
-            Button {} label: {
-                Text("See more")
-                    .font(.sHeadingS)
-                    .foregroundStyle(Color.sTextPrimary)
+            // Only offer "See more" when the notes are actually truncated.
+            if isNotesTruncated {
+                // Stubbed for now — opens the full review once wired.
+                Button {} label: {
+                    Text("See more")
+                        .font(.sHeadingS)
+                        .foregroundStyle(Color.sTextPrimary)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
+    }
+
+    /// True once the full notes render taller than the 2-line clamp.
+    private var isNotesTruncated: Bool {
+        fullNotesHeight > clampedNotesHeight + 1
     }
 
     // MARK: - Date
@@ -110,16 +184,36 @@ struct ProfileReviewCard: View {
     }
 }
 
+// MARK: - Truncation measurement
+
+/// Height of the notes clamped to `notesLineLimit`.
+private struct ClampedHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+/// Height the notes would take with no line limit.
+private struct FullHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Profile Review Card") {
-    ScrollView {
-        VStack(spacing: Spacing.lg) {
-            ForEach(Review.samples) { review in
-                ProfileReviewCard(review: review)
+    NavigationStack {
+        ScrollView {
+            VStack(spacing: Spacing.lg) {
+                ForEach(Review.samples) { review in
+                    ProfileReviewCard(review: review)
+                }
             }
+            .padding(Spacing.lg)
         }
-        .padding(Spacing.lg)
+        .background(Color.sBackground)
     }
-    .background(Color.sBackground)
 }

@@ -34,18 +34,35 @@ nonisolated struct BackendClient {
         return try decode(T.self, from: data, response: response)
     }
 
+    /// Performs an authenticated DELETE with no response body (expects 204).
+    func delete(_ path: String) async throws {
+        var request = URLRequest(url: baseURL.appending(path: path))
+        request.httpMethod = "DELETE"
+        if let bearer = try await token() {
+            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (_, response) = try await session.data(for: request)
+        try validateStatus(response)
+    }
+
     /// Validates the HTTP status and decodes the body with the shared decoder.
     func decode<T: Decodable>(_ type: T.Type, from data: Data, response: URLResponse) throws -> T {
+        try validateStatus(response)
+        do {
+            return try JSONDecoder.scout.decode(T.self, from: data)
+        } catch {
+            throw SpotServiceError.decoding(error)
+        }
+    }
+
+    /// Throws unless the response is a 2xx HTTP status.
+    private func validateStatus(_ response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else {
             throw SpotServiceError.invalidResponse
         }
         guard (200..<300).contains(http.statusCode) else {
             throw SpotServiceError.http(status: http.statusCode)
-        }
-        do {
-            return try JSONDecoder.scout.decode(T.self, from: data)
-        } catch {
-            throw SpotServiceError.decoding(error)
         }
     }
 }

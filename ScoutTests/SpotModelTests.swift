@@ -174,6 +174,7 @@ struct SpotModelTests {
         let json = """
         {
             "id": "r1", "spot_id": "s1", "user_id": "u1",
+            "public_lat": 1.0, "public_lng": 2.0, "city": "Seattle", "admin_area": "WA",
             "photo_urls": ["https://example.com/a.jpg"],
             "overall_rating": 5,
             "notes": "Great spot",
@@ -208,6 +209,7 @@ struct SpotModelTests {
         let json = """
         {
             "id": "r1", "spot_id": "s1", "user_id": "u1",
+            "public_lat": 1.0, "public_lng": 2.0, "city": "Seattle", "admin_area": "WA",
             "photo_urls": ["https://example.com/a.jpg"],
             "overall_rating": 3,
             "best_time_of_day": [],
@@ -234,6 +236,7 @@ struct SpotModelTests {
             "items": [
                 {
                     "id": "r1", "spot_id": "s1", "user_id": "u1",
+            "public_lat": 1.0, "public_lng": 2.0, "city": "Seattle", "admin_area": "WA",
                     "photo_urls": [],
                     "overall_rating": 4,
                     "notes": "Nice",
@@ -306,7 +309,9 @@ struct SpotModelTests {
 
     @Test func reviewTimesDropsUnknownValues() {
         let review = Review(
-            id: "r", spotId: "s", spotName: nil, userId: "u", photoUrls: [],
+            id: "r", spotId: "s", spotName: nil,
+            publicLat: 0, publicLng: 0, city: "Seattle", adminArea: "WA",
+            userId: "u", photoUrls: [],
             overallRating: 5, notes: nil,
             bestTimeOfDay: ["Sunrise", "garbage", "BlueHour"],
             bestSeason: ["Spring", "garbage", "YearRound"],

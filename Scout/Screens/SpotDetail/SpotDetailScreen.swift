@@ -25,7 +25,7 @@ struct SpotDetailScreen: View {
             case .loaded:
                 if let detail = viewModel.detail {
                     content(detail)
-                    leaveReviewBar
+//                    leaveReviewBar
                 }
             }
         }

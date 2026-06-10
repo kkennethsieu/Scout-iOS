@@ -24,10 +24,32 @@ struct ProfileViewModelTests {
             if let error { throw error }
             return pages[cursor] ?? PaginatedReviews(items: [], limit: limit, nextCursor: nil)
         }
+
+        var deleteError: Error?
+        func deleteReview(id: String) async throws {
+            if let deleteError { throw deleteError }
+        }
+    }
+
+    /// A service whose `deleteReview` blocks until `release` yields, so a test can
+    /// observe the in-flight `deletingReviewID` mid-delete.
+    private struct GatedDeleteService: UserService {
+        var profile: UserProfile = .sample
+        var firstPage: PaginatedReviews
+        let release: AsyncStream<Void>
+
+        func fetchCurrentUser() async throws -> UserProfile { profile }
+        func fetchMyReviews(limit: Int, cursor: String?) async throws -> PaginatedReviews { firstPage }
+        func deleteReview(id: String) async throws {
+            var iterator = release.makeAsyncIterator()
+            _ = await iterator.next()
+        }
     }
 
     private func review(_ id: String) -> Review {
-        Review(id: id, spotId: "s", spotName: "Spot", userId: "u", photoUrls: [],
+        Review(id: id, spotId: "s", spotName: "Spot",
+               publicLat: 0, publicLng: 0, city: "Seattle", adminArea: "WA",
+               userId: "u", photoUrls: [],
                overallRating: 4, notes: nil, bestTimeOfDay: [], bestSeason: [],
                accessLevel: nil, entranceFee: nil, crowdLevel: nil,
                gearRecommendations: nil, compositionHints: nil,
@@ -55,7 +77,8 @@ struct ProfileViewModelTests {
     @Test func loadPopulatesProfileAndFirstPage() async {
         let service = StubService(
             profile: UserProfile(id: "u1", displayName: "Marcus Chen",
-                                 location: "SF", photoURL: nil, reviewCount: 42),
+                                 homeCity: "San Francisco", homeCountry: "CA",
+                                 photoUrl: nil, reviewCount: 42),
             pages: [nil: PaginatedReviews(items: [review("a"), review("b")], limit: 10, nextCursor: "p2")]
         )
         let vm = makeVM(service)
@@ -112,5 +135,64 @@ struct ProfileViewModelTests {
         await vm.loadMore()
 
         #expect(vm.reviews.map(\.id) == ["a"])
+    }
+
+    // MARK: - Delete
+
+    @Test func deleteRemovesReviewAndDecrementsCount() async {
+        let service = StubService(
+            profile: UserProfile(id: "u1", displayName: "Marcus Chen",
+                                 homeCity: "SF", homeCountry: "CA",
+                                 photoUrl: nil, reviewCount: 2),
+            pages: [nil: PaginatedReviews(items: [review("a"), review("b")], limit: 10, nextCursor: nil)]
+        )
+        let vm = makeVM(service)
+        await vm.load()
+
+        await vm.deleteReview(review("a"))
+
+        #expect(vm.reviews.map(\.id) == ["b"])
+        #expect(vm.profile?.reviewCount == 1)
+        #expect(vm.deleteError == nil)
+    }
+
+    @Test func deleteFailureSetsErrorAndKeepsReview() async {
+        var service = StubService(
+            profile: UserProfile(id: "u1", displayName: "Marcus Chen",
+                                 homeCity: "SF", homeCountry: "CA",
+                                 photoUrl: nil, reviewCount: 2),
+            pages: [nil: PaginatedReviews(items: [review("a"), review("b")], limit: 10, nextCursor: nil)]
+        )
+        service.deleteError = SpotServiceError.invalidResponse
+        let vm = makeVM(service)
+        await vm.load()
+
+        await vm.deleteReview(review("a"))
+
+        #expect(vm.reviews.map(\.id) == ["a", "b"])
+        #expect(vm.profile?.reviewCount == 2)
+        #expect(vm.deleteError != nil)
+    }
+
+    @Test func deletingReviewIDTracksInFlightDelete() async {
+        let release = AsyncStream<Void>.makeStream()
+        let service = GatedDeleteService(
+            firstPage: PaginatedReviews(items: [review("a")], limit: 10, nextCursor: nil),
+            release: release.stream
+        )
+        let vm = makeVM(service)
+        await vm.load()
+
+        let task = Task { await vm.deleteReview(review("a")) }
+        await Task.yield()
+        #expect(vm.deletingReviewID == "a")
+
+        // Let the delete finish, then it should clear and remove the review.
+        release.continuation.yield(())
+        release.continuation.finish()
+        await task.value
+
+        #expect(vm.deletingReviewID == nil)
+        #expect(vm.reviews.isEmpty)
     }
 }

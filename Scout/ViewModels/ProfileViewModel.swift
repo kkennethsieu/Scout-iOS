@@ -41,6 +41,11 @@ final class ProfileViewModel {
     private(set) var hasMore = false
     /// A `loadMore()` fetch is in flight (distinct from the initial `loading`).
     private(set) var isLoadingMore = false
+    /// Set when a delete fails; the screen surfaces it as an alert.
+    private(set) var deleteError: String?
+    /// The id of the review currently being deleted, so its card can show a
+    /// spinner instead of looking frozen. `nil` when no delete is in flight.
+    private(set) var deletingReviewID: String?
 
     /// Cursor for the *next* page; `nil` once the list is fully loaded.
     private var cursor: String?
@@ -94,6 +99,29 @@ final class ProfileViewModel {
         } catch {
             // Keep the loaded reviews; a later trigger will retry this page.
         }
+    }
+
+    // MARK: - Delete
+
+    /// Deletes one of the user's reviews. Awaits the server, then removes the card
+    /// and decrements the header count. On failure the review is kept and the error
+    /// is surfaced for the screen to show.
+    func deleteReview(_ review: Review) async {
+        deletingReviewID = review.id
+        defer { deletingReviewID = nil }
+        do {
+            try await userService.deleteReview(id: review.id)
+            reviews.removeAll { $0.id == review.id }
+            if let current = profile?.reviewCount {
+                profile?.reviewCount = max(0, current - 1)
+            }
+        } catch {
+            deleteError = error.localizedDescription
+        }
+    }
+
+    func dismissDeleteError() {
+        deleteError = nil
     }
 
     // TODO: replace sample photo data with a service-backed load.

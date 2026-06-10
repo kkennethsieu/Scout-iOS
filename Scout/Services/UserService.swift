@@ -9,6 +9,8 @@ nonisolated protocol UserService {
     /// The current user's reviews, newest first, cursor-paginated. Pass the
     /// previous page's `nextCursor` to fetch the next page (`nil` for page one).
     func fetchMyReviews(limit: Int, cursor: String?) async throws -> PaginatedReviews
+    /// Deletes one of the caller's own reviews (`DELETE /reviews/{id}`).
+    func deleteReview(id: String) async throws
 }
 
 /// Hardcoded data for development / real-device fallback.
@@ -30,5 +32,9 @@ nonisolated struct MockUserService: UserService {
         default:
             return PaginatedReviews(items: Review.samples, limit: limit, nextCursor: nil)
         }
+    }
+
+    func deleteReview(id: String) async throws {
+        try await Task.sleep(for: delay)
     }
 }

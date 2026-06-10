@@ -5,10 +5,17 @@ nonisolated struct Review: Identifiable, Decodable, Hashable {
     // Server-generated identity / timestamp — always present.
     let id: String
     let spotId: String
-    /// The spot this review belongs to. Present on the profile "my reviews"
-    /// endpoint (so a review can name its spot); absent on a spot's own reviews
-    /// list, where the spot is already known.
+    /// Denormalized from the spot at create time so a fetched review carries its
+    /// spot's name without a second lookup. Present on the profile "my reviews"
+    /// endpoint; absent on a spot's own reviews list, where the spot is already
+    /// known. Optional for legacy docs predating this field.
     let spotName: String?
+    /// Obfuscated/public coordinates + place names denormalized from the spot
+    /// (the exact location is never exposed). Always returned by the backend.
+    let publicLat: Double
+    let publicLng: Double
+    let city: String
+    let adminArea: String
     let userId: String
     let photoUrls: [URL]
     // Only required review content.
@@ -54,6 +61,10 @@ nonisolated extension Review {
             id: "r1",
             spotId: "1",
             spotName: "Emerald Basin Ridge",
+            publicLat: 47.6062,
+            publicLng: -122.3321,
+            city: "Seattle",
+            adminArea: "WA",
             userId: "u1",
             photoUrls: [
                 URL(string: "https://picsum.photos/seed/review-a/600/600")!,
@@ -77,6 +88,10 @@ nonisolated extension Review {
             id: "r2",
             spotId: "1",
             spotName: "Cedar Cathedral",
+            publicLat: 45.5152,
+            publicLng: -122.6784,
+            city: "Portland",
+            adminArea: "OR",
             userId: "u2",
             photoUrls: [URL(string: "https://picsum.photos/seed/review-c/600/600")!],
             overallRating: 4,
