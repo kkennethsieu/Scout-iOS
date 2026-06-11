@@ -13,7 +13,7 @@ struct SpotQuickFacts: View {
         SSection(title: "Quick Facts") {
             LazyVGrid(columns: columns, spacing: Spacing.md) {
                 factPill(icon: "info.circle", value: detail.modeAccessLevel ?? "—", label: "Access")
-                factPill(icon: "calendar", value: detail.seasonsText, label: "Best Season")
+                factPill(icon: "calendar", value: detail.seasons.first?.label ?? "", label: "Best Season")
                 factPill(icon: "tag", value: detail.entranceFeeText, label: "Entrance Fee")
                 factPill(icon: "person.2", value: detail.modeCrowdLevel ?? "—", label: "Crowd Levels")
             }

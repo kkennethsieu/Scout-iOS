@@ -5,23 +5,33 @@ struct ExploreScreen: View {
     @State private var savedSpotIDs: Set<String> = []
     @State private var showFilters = false
     @State private var showSort = false
+    @State private var path = NavigationPath()
 
     init(service: SpotService = AppServices.spot) {
         _viewModel = State(initialValue: ExploreViewModel(service: service))
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ZStack(alignment: .bottomTrailing) {
                 Color.sBackground.ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
                         SSearchBar(
-                            text: $viewModel.searchText,
-                            activeFilterCount: viewModel.filters.activeCount
-                        ) {
-                            showFilters = true
+                            text: .constant(""),
+                            placeholder: "Search places...",
+                            activeFilterCount: viewModel.filters.activeCount,
+                            onTapFilter: { showFilters = true },
+                            onTap: { path.append(SearchRoute()) }
+                        )
+                        if let placeName = viewModel.placeName {
+                            HStack {
+                                ExplorePlaceChip(name: placeName) {
+                                    Task { await viewModel.clearPlace() }
+                                }
+                                Spacer(minLength: 0)
+                            }
                         }
                         ExploreFilterRow(
                             filters: ExploreViewModel.filters,
@@ -53,6 +63,17 @@ struct ExploreScreen: View {
             .navigationDestination(for: SpotSummary.self) { spot in
                 SpotDetailScreen(spotID: spot.id)
             }
+            .navigationDestination(for: SearchRoute.self) { _ in
+                SearchScreen { place in
+                    // Place: pop search (SearchScreen dismisses itself) + re-scope feed.
+                    Task { await viewModel.showPlace(place.region, name: place.name) }
+                } onSelectSpot: { spot in
+                    // Spot: drop search and push the spot's detail in its place.
+                    var detail = NavigationPath()
+                    detail.append(spot)
+                    path = detail
+                }
+            }
             .sheet(isPresented: $showFilters) {
                 ExploreFilterSheet(filters: $viewModel.filters) { candidate in
                     viewModel.resultCount(for: candidate)
@@ -73,7 +94,7 @@ struct ExploreScreen: View {
     private var content: some View {
         switch viewModel.state {
         case .idle, .loading:
-            SLoadingState()
+            ExploreSkeleton()
         case .failed(let message):
             SErrorStateView(message: message) {
                 Task { await viewModel.load() }
@@ -97,6 +118,19 @@ struct ExploreScreen: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .onAppear {
+                    // Reached the last card — pull the next page.
+                    if spot.id == viewModel.filteredSpots.last?.id {
+                        Task { await viewModel.loadMore() }
+                    }
+                }
+            }
+
+            if viewModel.isLoadingMore {
+                ProgressView()
+                    .tint(Color.sAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Spacing.md)
             }
         }
         .padding(.top, Spacing.xs)
@@ -112,6 +146,9 @@ struct ExploreScreen: View {
         }
     }
 }
+
+/// Path value that pushes the search screen onto Explore's stack.
+private struct SearchRoute: Hashable {}
 
 // MARK: - Preview
 

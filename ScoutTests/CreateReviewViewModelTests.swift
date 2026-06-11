@@ -271,7 +271,10 @@ private nonisolated struct StubSpotService: SpotService {
     var review: Review = Review.samples[0]
     var error: Error?
 
-    func fetchSpots(near region: SpotRegion?) async throws -> [SpotSummary] { [] }
+    func fetchSpots(near region: SpotRegion?, limit: Int, cursor: String?) async throws -> PaginatedSpots {
+        PaginatedSpots(items: [], limit: limit, nextCursor: nil)
+    }
+    func searchSpots(query: String, limit: Int) async throws -> [SpotSummary] { [] }
     func fetchSpotDetail(id: String) async throws -> SpotDetail { SpotDetail.sample }
     func fetchReviews(spotID: String) async throws -> [Review] { [] }
 

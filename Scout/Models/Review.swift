@@ -42,17 +42,6 @@ nonisolated struct Review: Identifiable, Decodable, Hashable {
     var seasons: [Season] { bestSeason.compactMap(Season.init(raw:)) }
 }
 
-// MARK: - Pagination
-
-/// A page of reviews. Mirrors the backend `PaginatedReviews` schema
-/// (`/spots/{id}/reviews`). `nextCursor` (from `next_cursor`) is non-nil when
-/// more pages are available — pass it back as `cursor` to fetch the next page.
-nonisolated struct PaginatedReviews: Decodable {
-    let items: [Review]
-    let limit: Int
-    let nextCursor: String?
-}
-
 // MARK: - Sample data
 
 nonisolated extension Review {

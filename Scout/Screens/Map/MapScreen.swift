@@ -133,7 +133,7 @@ struct MapScreen: View {
         }
         .padding(.trailing, Spacing.lg)
         // Sit above the selected-spot preview card when it's showing.
-        .padding(.bottom, viewModel.selectedSpot == nil ? Spacing.xl : 160)
+        .padding(.bottom, viewModel.selectedSpot == nil ? 120 : 160)
         .animation(.spring(duration: 0.3), value: viewModel.selectedSpotID)
     }
 }

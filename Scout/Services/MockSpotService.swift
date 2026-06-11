@@ -4,9 +4,12 @@ import Foundation
 /// implementation can be dropped in later without touching the views — they
 /// depend on this protocol, not on URLSession.
 nonisolated protocol SpotService {
-    /// Fetches spots near `region`. Pass `nil` to use the service's default
-    /// query window (used by the Explore feed, which isn't map-driven yet).
-    func fetchSpots(near region: SpotRegion?) async throws -> [SpotSummary]
+    /// Fetches a cursor-paginated page of spots near `region`. Pass `nil` for the
+    /// service's default query window; pass a prior page's `nextCursor` to page on.
+    func fetchSpots(near region: SpotRegion?, limit: Int, cursor: String?) async throws -> PaginatedSpots
+    /// Global name search (case-insensitive substring, ranked) powering the
+    /// search bar's Spots section. Not geo-scoped.
+    func searchSpots(query: String, limit: Int) async throws -> [SpotSummary]
     func fetchSpotDetail(id: String) async throws -> SpotDetail
     func fetchReviews(spotID: String) async throws -> [Review]
     /// Submits a review for an existing spot (multipart). Returns the created review.
@@ -17,9 +20,10 @@ nonisolated protocol SpotService {
 }
 
 extension SpotService {
-    /// Convenience for callers that don't care about a specific area.
-    func fetchSpots() async throws -> [SpotSummary] {
-        try await fetchSpots(near: nil)
+    /// First page only, items unwrapped — for callers that don't paginate
+    /// (Search, Map, CreateMap).
+    func fetchSpots(near region: SpotRegion? = nil) async throws -> [SpotSummary] {
+        try await fetchSpots(near: region, limit: 20, cursor: nil).items
     }
 }
 
@@ -28,9 +32,24 @@ extension SpotService {
 nonisolated struct MockSpotService: SpotService {
     var delay: Duration = .milliseconds(400)
 
-    func fetchSpots(near region: SpotRegion?) async throws -> [SpotSummary] {
+    func fetchSpots(near region: SpotRegion?, limit: Int, cursor: String?) async throws -> PaginatedSpots {
         try await Task.sleep(for: delay)   // simulate network latency
-        return SpotSummary.samples
+        // Paginate the samples by integer-offset cursor so "load more" is
+        // exercisable in previews/tests.
+        let start = cursor.flatMap(Int.init) ?? 0
+        let slice = Array(SpotSummary.samples.dropFirst(start).prefix(limit))
+        let end = start + slice.count
+        let next = end < SpotSummary.samples.count ? String(end) : nil
+        return PaginatedSpots(items: slice, limit: limit, nextCursor: next)
+    }
+
+    func searchSpots(query: String, limit: Int) async throws -> [SpotSummary] {
+        try await Task.sleep(for: delay)
+        return Array(
+            SpotSummary.samples
+                .filter { $0.name.localizedCaseInsensitiveContains(query) }
+                .prefix(limit)
+        )
     }
 
     func fetchSpotDetail(id: String) async throws -> SpotDetail {

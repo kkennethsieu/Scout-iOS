@@ -10,18 +10,22 @@ import Foundation
 /// `LiveSpotService.baseURL` at your Mac's LAN IP.
 enum AppServices {
     static var spot: SpotService {
-        #if targetEnvironment(simulator)
         LiveSpotService()
-        #else
-        MockSpotService()
-        #endif
+//
+//        #if targetEnvironment(simulator)
+//        LiveSpotService()
+//        #else
+//        MockSpotService()
+//        #endif
     }
 
     static var user: UserService {
-        #if targetEnvironment(simulator)
         LiveUserService()
-        #else
-        MockUserService()
-        #endif
+//
+//        #if targetEnvironment(simulator)
+//        LiveUserService()
+//        #else
+//        MockUserService()
+//        #endif
     }
 }

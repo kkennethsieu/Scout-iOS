@@ -150,7 +150,10 @@ struct ProfileScreen: View {
     }
 
     private var reviewsList: some View {
-        VStack(spacing: Spacing.lg) {
+        // Lazy so off-screen cards aren't realized up front — otherwise the last
+        // card's `.onAppear` fires immediately (and again after each appended
+        // page), cascading several `loadMore()` calls without any scrolling.
+        LazyVStack(spacing: Spacing.lg) {
             ForEach(viewModel.reviews) { review in
                 ProfileReviewCard(
                     review: review,

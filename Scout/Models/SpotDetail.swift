@@ -43,12 +43,6 @@ nonisolated struct SpotDetail: Identifiable, Decodable, Hashable {
         bestSeasons.compactMap(Season.init(raw:))
     }
 
-    /// Compact season summary for the Quick Facts pill, e.g. "Spring, Fall" or
-    /// "Year-Round"; "—" when no seasons are known.
-    var seasonsText: String {
-        seasons.isEmpty ? "—" : seasons.map(\.label).joined(separator: ", ")
-    }
-
     /// Average entrance fee for the Quick Facts pill: "—" when unknown, "Free"
     /// when 0, otherwise a dollar amount.
     var entranceFeeText: String {

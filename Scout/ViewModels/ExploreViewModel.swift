@@ -15,17 +15,29 @@ final class ExploreViewModel {
 
     private(set) var spots: [SpotSummary] = []
     private(set) var state: LoadState = .idle
-    var searchText: String = ""
+    /// More pages are available — drives the "load more" trigger / footer spinner.
+    private(set) var hasMore = false
+    /// A `loadMore()` fetch is in flight (distinct from the initial `loading`).
+    private(set) var isLoadingMore = false
     var selectedFilter: String = ExploreViewModel.filters[0]
     var filters = SpotFilters()
     var sort: SpotSort = .scout
 
+    /// The region the feed is currently scoped to (a place picked in Search);
+    /// `nil` is the default query window. `placeName` labels the clearable chip.
+    private(set) var region: SpotRegion?
+    private(set) var placeName: String?
+
     /// Static category chips for now; will come from the backend later.
     static let filters = ["All Spots", "Forest", "Coast", "Golden Hour"]
+
+    /// Cursor for the *next* page; `nil` once the list is fully loaded.
+    private var cursor: String?
 
     // MARK: - Dependencies
 
     private let service: SpotService
+    private let pageSize = 20
 
     init(service: SpotService = AppServices.spot) {
         self.service = service
@@ -34,36 +46,66 @@ final class ExploreViewModel {
     // MARK: - Derived
 
     var filteredSpots: [SpotSummary] {
-        let matched = spots.filter { matchesSearch($0) && filters.matches($0) }
+        let matched = spots.filter { filters.matches($0) }
         return sort.sorted(matched, distance: distance(for:))
     }
 
     var spotCountText: String {
         let count = filteredSpots.count
-        return count >= 500 ? "500+ spots" : "\(count) spots"
+        // Count reflects loaded pages; `+` signals more are available on scroll.
+        return "\(count)\(hasMore ? "+" : "") spots"
     }
 
-    /// Number of spots matching `candidate` plus the current search — used by
-    /// the filter sheet to preview results before they're applied.
+    /// Number of spots matching `candidate` — used by the filter sheet to preview
+    /// results before they're applied.
     func resultCount(for candidate: SpotFilters) -> Int {
-        spots.filter { matchesSearch($0) && candidate.matches($0) }.count
-    }
-
-    private func matchesSearch(_ spot: SpotSummary) -> Bool {
-        guard !searchText.isEmpty else { return true }
-        return spot.name.localizedCaseInsensitiveContains(searchText)
-            || spot.city.localizedCaseInsensitiveContains(searchText)
+        spots.filter { candidate.matches($0) }.count
     }
 
     // MARK: - Actions
 
     func load() async {
         state = .loading
+        cursor = nil
         do {
-            spots = try await service.fetchSpots()
+            let page = try await service.fetchSpots(near: region, limit: pageSize, cursor: nil)
+            spots = page.items
+            cursor = page.nextCursor
+            hasMore = page.nextCursor != nil
             state = .loaded
         } catch {
             state = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Scopes the feed to a place picked in Search and reloads from page one.
+    func showPlace(_ region: SpotRegion, name: String) async {
+        self.region = region
+        placeName = name
+        await load()
+    }
+
+    /// Clears the place scope and reloads the default feed.
+    func clearPlace() async {
+        region = nil
+        placeName = nil
+        await load()
+    }
+
+    /// Appends the next page. No-ops unless the list is loaded, more pages exist,
+    /// and no fetch is already running. On failure the list is left intact and the
+    /// cursor is preserved, so the next trigger retries.
+    func loadMore() async {
+        guard state == .loaded, hasMore, !isLoadingMore, let cursor else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        do {
+            let page = try await service.fetchSpots(near: region, limit: pageSize, cursor: cursor)
+            spots.append(contentsOf: page.items)
+            self.cursor = page.nextCursor
+            hasMore = page.nextCursor != nil
+        } catch {
+            // Keep the loaded spots; a later trigger will retry this page.
         }
     }
 

@@ -74,6 +74,47 @@ struct SpotModelTests {
         #expect(spot.coverPhoto?.absoluteString == "https://example.com/cover.jpg")
     }
 
+    @Test func decodesPaginatedSpotsEnvelope() throws {
+        // `GET /spots` now returns `{ items, limit, next_cursor }`, the same
+        // envelope as reviews — decoded through the generic `Page<SpotSummary>`.
+        let json = """
+        {
+            "items": [
+                {
+                    "id": "abc", "name": "Cedar Cathedral",
+                    "public_lat": 45.51, "public_lng": -122.68,
+                    "city": "Portland", "admin_area": "Oregon", "country": "USA",
+                    "created_at": "2026-05-01T12:00:00Z",
+                    "review_count": 128, "avg_rating": 4.9,
+                    "cover_photo_url": "https://example.com/cover.jpg",
+                    "recent_review_photos": [],
+                    "best_times": []
+                }
+            ],
+            "limit": 20,
+            "next_cursor": "eyJpZCI6ImFiYyJ9"
+        }
+        """.data(using: .utf8)!
+
+        let page = try JSONDecoder.scout.decode(PaginatedSpots.self, from: json)
+
+        #expect(page.items.count == 1)
+        #expect(page.items.first?.id == "abc")
+        #expect(page.limit == 20)
+        #expect(page.nextCursor == "eyJpZCI6ImFiYyJ9")
+    }
+
+    @Test func decodesPaginatedSpotsWithNullCursor() throws {
+        let json = """
+        { "items": [], "limit": 20, "next_cursor": null }
+        """.data(using: .utf8)!
+
+        let page = try JSONDecoder.scout.decode(PaginatedSpots.self, from: json)
+
+        #expect(page.items.isEmpty)
+        #expect(page.nextCursor == nil)
+    }
+
     @Test func carouselFallsBackToRecentPhotosWhenNoCover() {
         let bare = SpotSummary(
             id: "1", name: "N", publicLat: 0, publicLng: 0,
@@ -97,7 +138,7 @@ struct SpotModelTests {
     @Test func spotDetailSubtitleIsLocality() {
         let detail = SpotDetail.sample
         #expect(detail.subtitle == "Cascade Range, WA")
-        #expect(detail.seasonsText == "Spring, Fall")
+        #expect(detail.seasons.first?.label == "Spring")
     }
 
     @Test func spotDetailDecodesFullBackendSchema() throws {
@@ -165,7 +206,7 @@ struct SpotModelTests {
         #expect(!detail.hasLogistics)
         #expect(!detail.hasGearOrComposition)
         #expect(detail.shootingTimes.isEmpty)
-        #expect(detail.seasonsText == "—")
+        #expect(detail.seasons.isEmpty)
     }
 
     // MARK: - Review decoding

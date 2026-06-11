@@ -10,10 +10,17 @@ private struct StubSpotService: SpotService {
     var reviews: [Review] = []
     var error: Error?
 
-    func fetchSpots(near region: SpotRegion?) async throws -> [SpotSummary] {
+    func fetchSpots(near region: SpotRegion?, limit: Int, cursor: String?) async throws -> PaginatedSpots {
         if let error { throw error }
-        return spots
+        // Paginate `spots` by integer-offset cursor so single-page tests see the
+        // whole list (nextCursor == nil) while loadMore tests can page through.
+        let start = cursor.flatMap(Int.init) ?? 0
+        let slice = Array(spots.dropFirst(start).prefix(limit))
+        let end = start + slice.count
+        let next = end < spots.count ? String(end) : nil
+        return PaginatedSpots(items: slice, limit: limit, nextCursor: next)
     }
+    func searchSpots(query: String, limit: Int) async throws -> [SpotSummary] { [] }
     func fetchSpotDetail(id: String) async throws -> SpotDetail {
         if let error { throw error }
         return detail
@@ -34,6 +41,25 @@ private struct StubSpotService: SpotService {
 
 private struct StubError: LocalizedError {
     var errorDescription: String? { "stub failure" }
+}
+
+/// Reference-type stub that records the `near:` region it was last asked to
+/// fetch, so we can assert the place region is forwarded to the service.
+private final class RecordingSpotService: SpotService, @unchecked Sendable {
+    var spots: [SpotSummary] = []
+    private(set) var lastRegion: SpotRegion?
+
+    func fetchSpots(near region: SpotRegion?, limit: Int, cursor: String?) async throws -> PaginatedSpots {
+        lastRegion = region
+        return PaginatedSpots(items: spots, limit: limit, nextCursor: nil)
+    }
+    func searchSpots(query: String, limit: Int) async throws -> [SpotSummary] { [] }
+    func fetchSpotDetail(id: String) async throws -> SpotDetail { .sample }
+    func fetchReviews(spotID: String) async throws -> [Review] { [] }
+    func submitReview(spotID: String, payload: NewReviewPayload) async throws -> Review { Review.samples[0] }
+    func submitNewSpot(payload: NewReviewPayload) async throws -> CreatedSpotReview {
+        CreatedSpotReview(spot: .sample, review: Review.samples[0])
+    }
 }
 
 @MainActor
@@ -59,29 +85,6 @@ struct ExploreViewModelTests {
         #expect(vm.spots.isEmpty)
     }
 
-    @Test func searchFiltersByNameCaseInsensitively() async {
-        let service = StubSpotService(spots: [
-            .sample(id: "1", name: "Cedar Cathedral"),
-            .sample(id: "2", name: "Mirror Reservoir")
-        ])
-        let vm = ExploreViewModel(service: service)
-        await vm.load()
-
-        vm.searchText = "mirror"
-
-        #expect(vm.filteredSpots.count == 1)
-        #expect(vm.filteredSpots.first?.name == "Mirror Reservoir")
-    }
-
-    @Test func emptySearchReturnsAllSpots() async {
-        let service = StubSpotService(spots: [.sample(id: "1"), .sample(id: "2")])
-        let vm = ExploreViewModel(service: service)
-        await vm.load()
-
-        vm.searchText = ""
-
-        #expect(vm.filteredSpots.count == 2)
-    }
 
     @Test func mostPopularSortOrdersByReviewCountDescending() async {
         let service = StubSpotService(spots: [
@@ -124,20 +127,65 @@ struct ExploreViewModelTests {
         #expect(distances == distances.sorted())
     }
 
-    @Test func spotCountTextCapsAt500Plus() async {
-        let many = (0..<600).map { SpotSummary.sample(id: "\($0)") }
+    @Test func spotCountTextShowsPlusWhenMorePages() async {
+        // 25 spots > pageSize (20) → first page loaded, more available.
+        let many = (0..<25).map { SpotSummary.sample(id: "\($0)") }
         let vm = ExploreViewModel(service: StubSpotService(spots: many))
         await vm.load()
 
-        #expect(vm.spotCountText == "500+ spots")
+        #expect(vm.spotCountText == "20+ spots")
     }
 
-    @Test func spotCountTextShowsExactBelow500() async {
+    @Test func spotCountTextHasNoPlusOnLastPage() async {
         let few = (0..<3).map { SpotSummary.sample(id: "\($0)") }
         let vm = ExploreViewModel(service: StubSpotService(spots: few))
         await vm.load()
 
         #expect(vm.spotCountText == "3 spots")
+    }
+
+    // MARK: - Pagination
+
+    @Test func loadFetchesFirstPageAndFlagsMore() async {
+        let many = (0..<25).map { SpotSummary.sample(id: "\($0)") }
+        let vm = ExploreViewModel(service: StubSpotService(spots: many))
+
+        await vm.load()
+
+        #expect(vm.spots.count == 20)
+        #expect(vm.hasMore)
+    }
+
+    @Test func loadMoreAppendsNextPageAndClearsMore() async {
+        let many = (0..<25).map { SpotSummary.sample(id: "\($0)") }
+        let vm = ExploreViewModel(service: StubSpotService(spots: many))
+        await vm.load()
+
+        await vm.loadMore()
+
+        #expect(vm.spots.count == 25)
+        #expect(!vm.hasMore)
+    }
+
+    @Test func loadMoreIsNoOpOnLastPage() async {
+        let few = (0..<3).map { SpotSummary.sample(id: "\($0)") }
+        let vm = ExploreViewModel(service: StubSpotService(spots: few))
+        await vm.load()
+
+        await vm.loadMore()
+
+        #expect(vm.spots.count == 3)
+        #expect(!vm.hasMore)
+    }
+
+    @Test func loadMoreIsNoOpBeforeInitialLoad() async {
+        let many = (0..<25).map { SpotSummary.sample(id: "\($0)") }
+        let vm = ExploreViewModel(service: StubSpotService(spots: many))
+
+        await vm.loadMore()
+
+        #expect(vm.spots.isEmpty)
+        #expect(!vm.hasMore)
     }
 
     @Test func distanceTextIsDeterministicPerSpot() {
@@ -146,6 +194,34 @@ struct ExploreViewModelTests {
 
         #expect(vm.distanceText(for: spot) == vm.distanceText(for: spot))
         #expect(vm.distanceText(for: spot).hasSuffix("miles away"))
+    }
+
+    // MARK: - Place scope
+
+    @Test func showPlaceSetsScopeForwardsRegionAndReloads() async {
+        let service = RecordingSpotService()
+        service.spots = [.sample(id: "1")]
+        let vm = ExploreViewModel(service: service)
+        let region = SpotRegion(latitude: 37.86, longitude: -119.53, radiusKm: 40)
+
+        await vm.showPlace(region, name: "Yosemite National Park")
+
+        #expect(vm.region == region)
+        #expect(vm.placeName == "Yosemite National Park")
+        #expect(vm.state == .loaded)
+        #expect(service.lastRegion == region)
+    }
+
+    @Test func clearPlaceResetsScopeAndReloadsDefault() async {
+        let service = RecordingSpotService()
+        let vm = ExploreViewModel(service: service)
+        await vm.showPlace(SpotRegion(latitude: 1, longitude: 2, radiusKm: 3), name: "Somewhere")
+
+        await vm.clearPlace()
+
+        #expect(vm.region == nil)
+        #expect(vm.placeName == nil)
+        #expect(service.lastRegion == nil)
     }
 }
 

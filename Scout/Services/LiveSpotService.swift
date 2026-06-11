@@ -3,7 +3,8 @@ import Foundation
 /// `URLSession`-backed `SpotService` that talks to the Scout backend.
 ///
 /// Backend routes:
-/// - `GET /spots` → `[SpotSummaryResponse]`
+/// - `GET /spots` → `PaginatedSpots` envelope (`{ items, limit, next_cursor }`)
+/// - `GET /spots/search` → `[SpotSummaryResponse]` (global name search)
 /// - `GET /spots/{id}` → `SpotResponse` (full aggregates)
 /// - `GET /spots/{id}/reviews` → `PaginatedReviews` envelope
 nonisolated struct LiveSpotService: SpotService {
@@ -15,18 +16,28 @@ nonisolated struct LiveSpotService: SpotService {
     var latitude: Double = 34.0522
     var longitude: Double = -118.2437
     var radiusKm: Double = 50
+    /// Default page size for the reviews list (the spots list takes `limit` per call).
     var limit: Int = 20
 
-    func fetchSpots(near region: SpotRegion?) async throws -> [SpotSummary] {
+    func fetchSpots(near region: SpotRegion?, limit: Int, cursor: String?) async throws -> PaginatedSpots {
         // Use the requested map area if given; otherwise fall back to the
         // service's default center + radius.
         let area = region ?? SpotRegion(latitude: latitude,
                                         longitude: longitude,
                                         radiusKm: radiusKm)
-        return try await client.get("spots", query: [
+        var query = [
             "lat": "\(area.latitude)",
             "lng": "\(area.longitude)",
             "radius_km": "\(area.radiusKm)",
+            "limit": "\(limit)"
+        ]
+        if let cursor { query["cursor"] = cursor }
+        return try await client.get("spots", query: query)
+    }
+
+    func searchSpots(query: String, limit: Int) async throws -> [SpotSummary] {
+        try await client.get("spots/search", query: [
+            "q": query,
             "limit": "\(limit)"
         ])
     }
