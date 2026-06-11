@@ -74,11 +74,22 @@ struct SearchScreen: View {
 
     @ViewBuilder
     private var results: some View {
-        VStack(alignment: .leading, spacing: Spacing.xl) {
-            spots
-            places
+        if viewModel.hasResults {
+            VStack(alignment: .leading, spacing: Spacing.xl) {
+                spots
+                places
+            }
+            .padding(.top, Spacing.sm)
+        } else if viewModel.isSearchingSpots {
+            SearchSkeleton()
+        } else {
+            SEmptyStateView(
+                icon: "magnifyingglass",
+                title: "No results",
+                message: "No spots or places match “\(viewModel.query)”. Try a different search."
+            )
+            .padding(.top, Spacing.xxxl)
         }
-        .padding(.top, Spacing.sm)
     }
 
     @ViewBuilder

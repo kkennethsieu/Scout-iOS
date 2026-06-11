@@ -122,7 +122,8 @@ struct ProfileScreen: View {
         switch viewModel.selectedTab {
         case .photos:
             if viewModel.photoURLs.isEmpty {
-                emptyState(icon: "photo.on.rectangle.angled", message: "No photos yet")
+                SEmptyStateView(icon: "photo.on.rectangle.angled", title: "No photos yet")
+                    .padding(.vertical, Spacing.xxl)
             } else {
                 ProfilePhotoGrid(photoURLs: viewModel.photoURLs)
             }
@@ -142,7 +143,8 @@ struct ProfileScreen: View {
             }
         case .loaded:
             if viewModel.reviews.isEmpty {
-                emptyState(icon: "star", message: "No reviews yet")
+                SEmptyStateView(icon: "star", title: "No reviews yet")
+                    .padding(.vertical, Spacing.xxl)
             } else {
                 reviewsList
             }
@@ -177,18 +179,6 @@ struct ProfileScreen: View {
         }
     }
 
-    private func emptyState(icon: String, message: String) -> some View {
-        VStack(spacing: Spacing.md) {
-            Image(systemName: icon)
-                .font(.system(size: 40))
-                .foregroundStyle(Color.sTextTertiary)
-            Text(message)
-                .font(.sBody)
-                .foregroundStyle(Color.sTextSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.xxl)
-    }
 }
 
 // MARK: - Preview

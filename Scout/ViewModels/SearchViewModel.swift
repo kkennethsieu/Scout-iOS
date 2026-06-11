@@ -22,11 +22,17 @@ final class SearchViewModel {
 
     /// Backend name matches (the "Spots" section). Tapping one opens Spot Detail.
     private(set) var spotResults: [SpotSummary] = []
+    /// A backend spot search is scheduled or in flight — drives the loading skeleton.
+    private(set) var isSearchingSpots = false
 
     /// MapKit autocomplete. Owned here so `query` drives it directly.
     let places = PlaceSearch()
 
     var placeResults: [MKLocalSearchCompletion] { places.completions }
+
+    /// Any results to show (either section). When false with no search in flight,
+    /// the screen shows its empty state.
+    var hasResults: Bool { !spotResults.isEmpty || !placeResults.isEmpty }
 
     /// Most recent searches kept; oldest fall off the end.
     private let recentsLimit = 8
@@ -63,8 +69,10 @@ final class SearchViewModel {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard q.count >= minQueryLength else {
             spotResults = []
+            isSearchingSpots = false
             return
         }
+        isSearchingSpots = true
         searchTask = Task { [weak self, searchDebounce] in
             try? await Task.sleep(for: searchDebounce)
             guard !Task.isCancelled else { return }
@@ -74,18 +82,23 @@ final class SearchViewModel {
 
     /// Runs the backend name search now. Internal so tests can drive it without
     /// the debounce. On failure it keeps prior results (transient-tolerant).
+    /// A superseded (cancelled) call leaves `isSearchingSpots` for the newer task.
     func performSpotSearch(_ rawQuery: String) async {
         let q = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard q.count >= minQueryLength else {
             spotResults = []
+            isSearchingSpots = false
             return
         }
         do {
             let results = try await service.searchSpots(query: q, limit: spotLimit)
             guard !Task.isCancelled else { return }
             spotResults = results
+            isSearchingSpots = false
         } catch {
             // Keep prior results; a later keystroke retries.
+            guard !Task.isCancelled else { return }
+            isSearchingSpots = false
         }
     }
 

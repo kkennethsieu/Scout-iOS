@@ -62,6 +62,11 @@ final class ExploreViewModel {
         spots.filter { candidate.matches($0) }.count
     }
 
+    /// Resets all active filters (used by the empty-state CTA).
+    func clearFilters() {
+        filters = SpotFilters()
+    }
+
     // MARK: - Actions
 
     func load() async {

@@ -38,6 +38,8 @@ struct SearchViewModelTests {
         await vm.performSpotSearch("cedar")
 
         #expect(vm.spotResults.map(\.id) == ["1"])
+        #expect(vm.hasResults)
+        #expect(!vm.isSearchingSpots)
     }
 
     @Test func performSpotSearchIgnoresShortQueries() async {
@@ -47,6 +49,13 @@ struct SearchViewModelTests {
         await vm.performSpotSearch("c")
 
         #expect(vm.spotResults.isEmpty)
+        #expect(!vm.isSearchingSpots)
+    }
+
+    @Test func hasResultsFalseWhenEmpty() {
+        let vm = SearchViewModel(service: StubSpotService(), defaults: makeDefaults())
+
+        #expect(!vm.hasResults)
     }
 
     // MARK: - Recent searches

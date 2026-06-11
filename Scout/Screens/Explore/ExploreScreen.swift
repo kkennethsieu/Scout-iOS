@@ -101,7 +101,39 @@ struct ExploreScreen: View {
             }
             .padding(.top, Spacing.xxxl)
         case .loaded:
-            spotList
+            if viewModel.filteredSpots.isEmpty {
+                emptyState.padding(.top, Spacing.xxxl)
+            } else {
+                spotList
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var emptyState: some View {
+        if let placeName = viewModel.placeName {
+            SEmptyStateView(
+                icon: "mappin.slash",
+                title: "No spots in \(placeName)",
+                message: "Be the first!",
+                actionTitle: "Add the first spot in \(placeName)"
+            ) {
+                Task { await viewModel.clearPlace() }
+            }
+        } else if viewModel.filters.activeCount > 0 {
+            SEmptyStateView(
+                icon: "line.3.horizontal.decrease.circle",
+                title: "No spots match your filters",
+                actionTitle: "Clear filters"
+            ) {
+                viewModel.clearFilters()
+            }
+        } else {
+            SEmptyStateView(
+                icon: "mappin.slash",
+                title: "No spots yet",
+                message: "Check back soon."
+            )
         }
     }
 
