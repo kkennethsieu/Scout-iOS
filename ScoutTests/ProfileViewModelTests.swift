@@ -29,6 +29,11 @@ struct ProfileViewModelTests {
         func deleteReview(id: String) async throws {
             if let deleteError { throw deleteError }
         }
+
+        var accountDeleteError: Error?
+        func deleteAccount() async throws {
+            if let accountDeleteError { throw accountDeleteError }
+        }
     }
 
     /// A service whose `deleteReview` blocks until `release` yields, so a test can
@@ -44,6 +49,7 @@ struct ProfileViewModelTests {
             var iterator = release.makeAsyncIterator()
             _ = await iterator.next()
         }
+        func deleteAccount() async throws {}
     }
 
     private func review(_ id: String) -> Review {
@@ -194,5 +200,29 @@ struct ProfileViewModelTests {
 
         #expect(vm.deletingReviewID == nil)
         #expect(vm.reviews.isEmpty)
+    }
+
+    // MARK: - Account deletion
+
+    @Test func deleteAccountSucceeds() async {
+        let vm = makeVM(StubService())
+
+        let ok = await vm.deleteAccount()
+
+        #expect(ok)
+        #expect(vm.accountDeleteError == nil)
+        #expect(!vm.isDeletingAccount)
+    }
+
+    @Test func deleteAccountFailureSetsErrorAndReturnsFalse() async {
+        var service = StubService()
+        service.accountDeleteError = SpotServiceError.invalidResponse
+        let vm = makeVM(service)
+
+        let ok = await vm.deleteAccount()
+
+        #expect(!ok)
+        #expect(vm.accountDeleteError != nil)
+        #expect(!vm.isDeletingAccount)
     }
 }

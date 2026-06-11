@@ -46,6 +46,10 @@ final class ProfileViewModel {
     /// The id of the review currently being deleted, so its card can show a
     /// spinner instead of looking frozen. `nil` when no delete is in flight.
     private(set) var deletingReviewID: String?
+    /// Account deletion is in flight — the screen blocks interaction + shows a spinner.
+    private(set) var isDeletingAccount = false
+    /// Set when account deletion fails; the screen surfaces it as an alert.
+    private(set) var accountDeleteError: String?
 
     /// Cursor for the *next* page; `nil` once the list is fully loaded.
     private var cursor: String?
@@ -122,6 +126,27 @@ final class ProfileViewModel {
 
     func dismissDeleteError() {
         deleteError = nil
+    }
+
+    // MARK: - Account deletion
+
+    /// Permanently deletes the user's account on the backend (which also removes
+    /// the Firebase auth user). Returns `true` on success so the screen can sign
+    /// out; on failure surfaces the error and returns `false`.
+    func deleteAccount() async -> Bool {
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+        do {
+            try await userService.deleteAccount()
+            return true
+        } catch {
+            accountDeleteError = error.localizedDescription
+            return false
+        }
+    }
+
+    func dismissAccountDeleteError() {
+        accountDeleteError = nil
     }
 
     // TODO: replace sample photo data with a service-backed load.

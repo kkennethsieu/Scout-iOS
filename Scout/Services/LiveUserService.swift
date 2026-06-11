@@ -5,6 +5,7 @@ import Foundation
 /// Backend routes:
 /// - `GET /users/me` → `UserProfile`
 /// - `GET /users/me/reviews` → `PaginatedReviews` envelope (cursor-paginated)
+/// - `DELETE /users/me` → 204 (deletes the user + data + Firebase auth user)
 nonisolated struct LiveUserService: UserService {
     var client = BackendClient()
     var pageLimit = 10
@@ -21,5 +22,9 @@ nonisolated struct LiveUserService: UserService {
 
     func deleteReview(id: String) async throws {
         try await client.delete("reviews/\(id)")
+    }
+
+    func deleteAccount() async throws {
+        try await client.delete("users/me")
     }
 }

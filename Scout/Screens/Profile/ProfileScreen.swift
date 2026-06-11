@@ -13,6 +13,8 @@ struct ProfileScreen: View {
 
     /// The review the user tapped "Delete" on; presenting the confirmation dialog.
     @State private var reviewPendingDeletion: Review?
+    /// Presents the "delete account" confirmation dialog.
+    @State private var showDeleteAccountConfirm = false
 
     init(isActive: Bool = true, viewModel: ProfileViewModel = ProfileViewModel()) {
         self.isActive = isActive
@@ -78,6 +80,44 @@ struct ProfileScreen: View {
         } message: {
             Text(viewModel.deleteError ?? "")
         }
+        .confirmationDialog(
+            "Delete your account?",
+            isPresented: $showDeleteAccountConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete account", role: .destructive) {
+                Task {
+                    if await viewModel.deleteAccount() {
+                        try? auth.signOut()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes your account, reviews, and photos. This can't be undone.")
+        }
+        .alert(
+            "Couldn't delete account",
+            isPresented: Binding(
+                get: { viewModel.accountDeleteError != nil },
+                set: { if !$0 { viewModel.dismissAccountDeleteError() } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(viewModel.accountDeleteError ?? "")
+        }
+        .overlay {
+            if viewModel.isDeletingAccount {
+                ZStack {
+                    Color.black.opacity(0.2).ignoresSafeArea()
+                    ProgressView("Deleting account…")
+                        .tint(Color.sAccent)
+                        .padding(Spacing.xl)
+                        .background(Color.sSurface, in: RoundedRectangle(cornerRadius: Radius.lg))
+                }
+            }
+        }
     }
 
     // MARK: - Top bar
@@ -87,8 +127,11 @@ struct ProfileScreen: View {
             Spacer()
 
             Menu {
-                Button("Sign out", role: .destructive) {
+                Button("Sign out") {
                     try? auth.signOut()
+                }
+                Button("Delete account", role: .destructive) {
+                    showDeleteAccountConfirm = true
                 }
             } label: {
                 icon("gearshape")

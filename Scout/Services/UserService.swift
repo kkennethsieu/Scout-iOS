@@ -11,6 +11,10 @@ nonisolated protocol UserService {
     func fetchMyReviews(limit: Int, cursor: String?) async throws -> PaginatedReviews
     /// Deletes one of the caller's own reviews (`DELETE /reviews/{id}`).
     func deleteReview(id: String) async throws
+    /// Permanently deletes the caller's account (`DELETE /users/me`): the backend
+    /// removes their user record + data and deletes the Firebase auth user. The
+    /// client signs out afterward.
+    func deleteAccount() async throws
 }
 
 /// Hardcoded data for development / real-device fallback.
@@ -35,6 +39,10 @@ nonisolated struct MockUserService: UserService {
     }
 
     func deleteReview(id: String) async throws {
+        try await Task.sleep(for: delay)
+    }
+
+    func deleteAccount() async throws {
         try await Task.sleep(for: delay)
     }
 }
