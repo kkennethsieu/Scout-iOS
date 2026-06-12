@@ -11,10 +11,9 @@ struct ProfileScreen: View {
     /// the profile doc + reviews, so the count stays fresh each time it's shown.
     var isActive: Bool
 
-    /// The review the user tapped "Delete" on; presenting the confirmation dialog.
-    @State private var reviewPendingDeletion: Review?
-    /// Presents the "delete account" confirmation dialog.
-    @State private var showDeleteAccountConfirm = false
+    /// Pushes the Edit Profile sub-screen (triggered from the "more" menu, which
+    /// can't host a value-based `NavigationLink`).
+    @State private var showEditProfile = false
 
     init(isActive: Bool = true, viewModel: ProfileViewModel = ProfileViewModel()) {
         self.isActive = isActive
@@ -48,75 +47,16 @@ struct ProfileScreen: View {
             .navigationDestination(for: String.self) { spotID in
                 SpotDetailScreen(spotID: spotID)
             }
+            .navigationDestination(for: SettingsRoute.self) { _ in
+                SettingsScreen(viewModel: viewModel)
+            }
+            .navigationDestination(isPresented: $showEditProfile) {
+                EditProfileScreen()
+            }
         }
         .task(id: isActive) {
             // Refetch whenever the Profile tab becomes the active one.
             if isActive { await viewModel.load() }
-        }
-        .confirmationDialog(
-            "Delete this review?",
-            isPresented: Binding(
-                get: { reviewPendingDeletion != nil },
-                set: { if !$0 { reviewPendingDeletion = nil } }
-            ),
-            titleVisibility: .visible,
-            presenting: reviewPendingDeletion
-        ) { review in
-            Button("Delete", role: .destructive) {
-                Task { await viewModel.deleteReview(review) }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { review in
-            Text("This permanently removes your review\(review.spotName.map { " of \($0)" } ?? "").")
-        }
-        .alert(
-            "Couldn't delete review",
-            isPresented: Binding(
-                get: { viewModel.deleteError != nil },
-                set: { if !$0 { viewModel.dismissDeleteError() } }
-            )
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(viewModel.deleteError ?? "")
-        }
-        .confirmationDialog(
-            "Delete your account?",
-            isPresented: $showDeleteAccountConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Delete account", role: .destructive) {
-                Task {
-                    if await viewModel.deleteAccount() {
-                        try? auth.signOut()
-                    }
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This permanently deletes your account, reviews, and photos. This can't be undone.")
-        }
-        .alert(
-            "Couldn't delete account",
-            isPresented: Binding(
-                get: { viewModel.accountDeleteError != nil },
-                set: { if !$0 { viewModel.dismissAccountDeleteError() } }
-            )
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(viewModel.accountDeleteError ?? "")
-        }
-        .overlay {
-            if viewModel.isDeletingAccount {
-                ZStack {
-                    Color.black.opacity(0.2).ignoresSafeArea()
-                    ProgressView("Deleting account…")
-                        .tint(Color.sAccent)
-                        .padding(Spacing.xl)
-                        .background(Color.sSurface, in: RoundedRectangle(cornerRadius: Radius.lg))
-                }
-            }
         }
     }
 
@@ -126,23 +66,16 @@ struct ProfileScreen: View {
         HStack(spacing: 0) {
             Spacer()
 
-            Menu {
-                Button("Sign out") {
-                    try? auth.signOut()
-                }
-                Button("Delete account", role: .destructive) {
-                    showDeleteAccountConfirm = true
-                }
-            } label: {
+            NavigationLink(value: SettingsRoute()) {
                 icon("gearshape")
             }
             .accessibilityLabel("Settings")
 
-            // Stubbed — "more" actions land here once wired.
-            Button {} label: {
+            Menu{
+                Button("Edit profile") { showEditProfile = true }
+            } label: {
                 icon("ellipsis")
             }
-            .buttonStyle(.plain)
             .accessibilityLabel("More")
         }
         .padding(.horizontal, Spacing.lg)
@@ -164,65 +97,17 @@ struct ProfileScreen: View {
     private var tabContent: some View {
         switch viewModel.selectedTab {
         case .photos:
-            if viewModel.photoURLs.isEmpty {
-                SEmptyStateView(icon: "photo.on.rectangle.angled", title: "No photos yet")
-                    .padding(.vertical, Spacing.xxl)
-            } else {
-                ProfilePhotoGrid(photoURLs: viewModel.photoURLs)
-            }
+            ProfilePhotoGrid(photoURLs: viewModel.photoURLs)
         case .reviews:
-            reviewsContent
+            ProfileReviewsList(viewModel: viewModel)
         }
     }
-
-    @ViewBuilder
-    private var reviewsContent: some View {
-        switch viewModel.state {
-        case .idle, .loading:
-            SLoadingState()
-        case .failed(let message):
-            SErrorStateView(message: message) {
-                Task { await viewModel.load() }
-            }
-        case .loaded:
-            if viewModel.reviews.isEmpty {
-                SEmptyStateView(icon: "star", title: "No reviews yet")
-                    .padding(.vertical, Spacing.xxl)
-            } else {
-                reviewsList
-            }
-        }
-    }
-
-    private var reviewsList: some View {
-        // Lazy so off-screen cards aren't realized up front — otherwise the last
-        // card's `.onAppear` fires immediately (and again after each appended
-        // page), cascading several `loadMore()` calls without any scrolling.
-        LazyVStack(spacing: Spacing.lg) {
-            ForEach(viewModel.reviews) { review in
-                ProfileReviewCard(
-                    review: review,
-                    isDeleting: viewModel.deletingReviewID == review.id,
-                    onDelete: { reviewPendingDeletion = review }
-                )
-                    .onAppear {
-                        // Reached the last card — pull the next page.
-                        if review.id == viewModel.reviews.last?.id {
-                            Task { await viewModel.loadMore() }
-                        }
-                    }
-            }
-
-            if viewModel.isLoadingMore {
-                ProgressView()
-                    .tint(Color.sAccent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.md)
-            }
-        }
-    }
-
 }
+
+// MARK: - Routes
+
+/// Route token for pushing the Settings page from the gear button.
+private struct SettingsRoute: Hashable {}
 
 // MARK: - Preview
 

@@ -10,7 +10,7 @@ struct ProfileHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            avatar
+            SAvatar(url: profile?.photoUrl)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(profile?.displayName ?? "Marcus Chen")
@@ -41,30 +41,6 @@ struct ProfileHeader: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .redacted(reason: isLoading ? .placeholder : [])
-    }
-
-    // MARK: - Avatar
-
-    private var avatar: some View {
-        Group {
-            if let url = profile?.photoUrl {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Color.sBorderSubtle
-                }
-            } else {
-                Circle()
-                    .fill(Color.sAccentSoft)
-                    .overlay {
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 40))
-                            .foregroundStyle(Color.sTextTertiary)
-                    }
-            }
-        }
-        .frame(width: 96, height: 96)
-        .clipShape(Circle())
     }
 
     // MARK: - Stat

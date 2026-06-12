@@ -49,25 +49,7 @@ struct ReviewCard: View {
     }
 
     private var avatar: some View {
-        Group {
-            if let avatarURL {
-                AsyncImage(url: avatarURL) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Color.sBorderSubtle
-                }
-            } else {
-                Circle()
-                    .fill(Color.sAccentSoft)
-                    .overlay {
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(Color.sTextTertiary)
-                    }
-            }
-        }
-        .frame(width: 32, height: 32)
-        .clipShape(Circle())
+        SAvatar(url: avatarURL, size: 32)
     }
 
     private var stars: some View {

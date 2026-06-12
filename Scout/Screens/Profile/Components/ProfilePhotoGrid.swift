@@ -9,18 +9,23 @@ struct ProfilePhotoGrid: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 3)
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 2) {
-            ForEach(photoURLs, id: \.self) { url in
-                Color.sBorderSubtle
-                    .aspectRatio(1, contentMode: .fit)
-                    .overlay {
-                        AsyncImage(url: url) { image in
-                            image.resizable().scaledToFill()
-                        } placeholder: {
-                            Color.sBorderSubtle
+        if photoURLs.isEmpty {
+            SEmptyStateView(icon: "photo.on.rectangle.angled", title: "No photos yet")
+                .padding(.vertical, Spacing.xxl)
+        } else {
+            LazyVGrid(columns: columns, spacing: 2) {
+                ForEach(photoURLs, id: \.self) { url in
+                    Color.sBorderSubtle
+                        .aspectRatio(1, contentMode: .fit)
+                        .overlay {
+                            AsyncImage(url: url) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                Color.sBorderSubtle
+                            }
                         }
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                }
             }
         }
     }
