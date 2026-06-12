@@ -68,8 +68,9 @@ struct CreateSpotFlow: ViewModifier {
                     },
                     onUseCurrentLocation: {
                         // Centre the map on the current location (synchronous in
-                        // DEBUG via the dev override; otherwise adopted async).
-                        location.start()
+                        // DEBUG via the dev override; otherwise adopted async). The
+                        // user explicitly chose location, so prompt if needed.
+                        location.requestPermission()
                         choose(.currentLocation(location.coordinate))
                     }
                 )

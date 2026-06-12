@@ -126,7 +126,7 @@ struct MapScreen: View {
                     if let coordinate = location.coordinate {
                         viewModel.recenter(on: coordinate)
                     } else {
-                        location.start()   // not yet authorized — prompt / retry
+                        location.requestPermission()   // not yet authorized — prompt / retry
                     }
                 }
             }

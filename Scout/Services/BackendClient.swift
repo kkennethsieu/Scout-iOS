@@ -6,7 +6,8 @@ import Foundation
 /// these so request handling lives in a single place.
 nonisolated struct BackendClient {
     /// Backend base URL. Defaults to the local dev server on port 8000.
-    var baseURL = URL(string: "http://127.0.0.1:8000")!
+//    var baseURL = URL(string: "http://127.0.0.1:8000")!
+    var baseURL = URL(string: "https://sprite-armadillo-scarf.ngrok-free.dev")!
     var session: URLSession = .shared
 
     /// Supplies the Firebase ID token for the `Authorization: Bearer` header.

@@ -56,8 +56,23 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         #endif
     }
 
-    /// Requests permission (if needed) and begins updates. Idempotent.
+    /// Begins location updates **only if already authorized** — it never shows the
+    /// system permission prompt. Safe to call from `onAppear`; the prompt is gated
+    /// behind `requestPermission()` so a primer can explain it first. Idempotent.
     func start() {
+        if let fixedLocation {
+            authorizationStatus = Self.grantedStatus
+            coordinate = fixedLocation
+            return
+        }
+        if isAuthorized { manager.startUpdatingLocation() }
+    }
+
+    /// Explicitly requests permission (showing the system prompt when status is
+    /// `.notDetermined`) and begins updates once granted. Call only from a user
+    /// action — the location primer's "Enable", the map recenter button, or the
+    /// create flow's "use current location".
+    func requestPermission() {
         if let fixedLocation {
             authorizationStatus = Self.grantedStatus
             coordinate = fixedLocation
