@@ -1,4 +1,4 @@
-name: iOS Build
+name: iOS CI
 
 on:
   push:
@@ -6,26 +6,46 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# Cancel an in-progress run if newer commits land on the same ref.
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    runs-on: macos-15
+  build-test:
+    runs-on: macos-26
     env:
       PROJECT: Scout.xcodeproj
       SCHEME: Scout
-      DESTINATION: 'platform=iOS Simulator,name=iPhone 16,OS=latest'
+      DESTINATION: 'platform=iOS Simulator,name=iPhone 17'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app
+      # Deployment target is 26.1, so we need Xcode 26.1 — Xcode 16 cannot build this.
+      - name: Select Xcode 26.1
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.1'
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Show versions
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available | grep -i "iPhone 17" || true
 
-      - name: Install xcpretty
-        run: gem install xcpretty
+      # GoogleService-Info.plist is gitignored, so recreate it from a base64 secret.
+      # Firebase fatal-errors at launch without it, which would crash the test host.
+      - name: Restore GoogleService-Info.plist
+        env:
+          GOOGLE_SERVICE_INFO_PLIST_BASE64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_INFO_PLIST_BASE64" ]; then
+            echo "::error::Missing GOOGLE_SERVICE_INFO_PLIST_BASE64 secret. See .github/workflows/ios.yml for setup."
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICE_INFO_PLIST_BASE64" | base64 --decode > Scout/GoogleService-Info.plist
+          plutil -lint Scout/GoogleService-Info.plist
 
       - name: Build
         run: |
@@ -35,9 +55,9 @@ jobs:
             -scheme "$SCHEME" \
             -destination "$DESTINATION" \
             CODE_SIGNING_ALLOWED=NO \
-            | xcpretty
+            | xcbeautify
 
-      - name: Run tests
+      - name: Test
         run: |
           set -o pipefail
           xcodebuild test \
@@ -45,4 +65,4 @@ jobs:
             -scheme "$SCHEME" \
             -destination "$DESTINATION" \
             CODE_SIGNING_ALLOWED=NO \
-            | xcpretty
+            | xcbeautify
