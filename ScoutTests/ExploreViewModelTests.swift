@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import CoreLocation
 @testable import Scout
 
 /// A SpotService stub returning a fixed list, so view-model tests don't depend
@@ -114,17 +115,34 @@ struct ExploreViewModelTests {
         #expect(vm.filteredSpots.map(\.id) == ["1", "2", "3"])
     }
 
-    @Test func closestSortOrdersByAscendingDistance() async {
+    @Test func closestSortOrdersByAscendingRealDistance() async {
+        // Distinct coordinates increasingly far from the user (in San Francisco).
         let service = StubSpotService(spots: [
-            .sample(id: "a"), .sample(id: "b"), .sample(id: "c")
+            .sample(id: "far", lat: 37.90, lng: -122.40),
+            .sample(id: "near", lat: 37.775, lng: -122.418),
+            .sample(id: "mid", lat: 37.80, lng: -122.42)
+        ])
+        let vm = ExploreViewModel(service: service)
+        await vm.load()
+        vm.userCoordinate = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+
+        vm.sort = .closest
+
+        #expect(vm.filteredSpots.map(\.id) == ["near", "mid", "far"])
+    }
+
+    @Test func closestSortKeepsServerOrderWithoutLocation() async {
+        let service = StubSpotService(spots: [
+            .sample(id: "1", lat: 37.90, lng: -122.40),
+            .sample(id: "2", lat: 37.775, lng: -122.418),
+            .sample(id: "3", lat: 37.80, lng: -122.42)
         ])
         let vm = ExploreViewModel(service: service)
         await vm.load()
 
-        vm.sort = .closest
-        let distances = vm.filteredSpots.map { vm.distance(for: $0) }
+        vm.sort = .closest   // no userCoordinate → all equal → stable server order
 
-        #expect(distances == distances.sorted())
+        #expect(vm.filteredSpots.map(\.id) == ["1", "2", "3"])
     }
 
     @Test func spotCountTextShowsPlusWhenMorePages() async {
@@ -188,12 +206,48 @@ struct ExploreViewModelTests {
         #expect(!vm.hasMore)
     }
 
-    @Test func distanceTextIsDeterministicPerSpot() {
+    @Test func distanceTextNilWithoutLocationAndSetWithIt() {
         let vm = ExploreViewModel(service: StubSpotService())
-        let spot = SpotSummary.sample(id: "stable-id")
+        let spot = SpotSummary.sample(id: "x", lat: 37.80, lng: -122.42)
 
-        #expect(vm.distanceText(for: spot) == vm.distanceText(for: spot))
-        #expect(vm.distanceText(for: spot).hasSuffix("miles away"))
+        #expect(vm.distanceText(for: spot) == nil)
+
+        vm.userCoordinate = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+        #expect(vm.distanceText(for: spot)?.hasSuffix("mi") == true)
+    }
+
+    // MARK: - User location centering
+
+    @Test func applyUserLocationCentersFeedWhenNoPlace() async {
+        let service = RecordingSpotService()
+        let vm = ExploreViewModel(service: service)
+
+        await vm.applyUserLocation(CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194))
+
+        #expect(vm.userCoordinate != nil)
+        #expect(vm.region == nil)
+        #expect(service.lastRegion?.latitude == 37.7749)   // queried around the user
+    }
+
+    @Test func applyUserLocationDoesNotOverridePlace() async {
+        let service = RecordingSpotService()
+        let vm = ExploreViewModel(service: service)
+        let place = SpotRegion(latitude: 37.86, longitude: -119.53, radiusKm: 40)
+        await vm.showPlace(place, name: "Yosemite National Park")
+
+        await vm.applyUserLocation(CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194))
+
+        #expect(service.lastRegion == place)   // still the place, not the user
+    }
+
+    @Test func applyUserLocationNilLeavesDefaultWindow() async {
+        let service = RecordingSpotService()
+        let vm = ExploreViewModel(service: service)
+        await vm.load()
+
+        await vm.applyUserLocation(nil)
+
+        #expect(service.lastRegion == nil)   // LA fallback in the service
     }
 
     // MARK: - Place scope

@@ -42,13 +42,6 @@ final class SpotDetailViewModel {
         }
     }
 
-    /// Placeholder distance until CoreLocation is wired.
-    var distanceText: String {
-        guard let detail else { return "" }
-        let miles = Double((abs(detail.id.hashValue) % 50) + 1) / 10.0
-        return "\(miles.formatted(.number.precision(.fractionLength(1)))) mi"
-    }
-
     var reviewCountText: String {
         guard let detail else { return "" }
         return "\(detail.reviewCount) people shared their view"

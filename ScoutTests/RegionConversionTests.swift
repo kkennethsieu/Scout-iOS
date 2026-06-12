@@ -32,3 +32,24 @@ struct RegionConversionTests {
         #expect(wide.spotRegion.radiusKm > tight.spotRegion.radiusKm)
     }
 }
+
+/// `SpotSummary` distance helpers (`distanceMiles`/`distanceText` from an origin).
+struct SpotDistanceTests {
+
+    @Test func nilOriginYieldsNoDistance() {
+        let spot = SpotSummary.sample(id: "x", lat: 37.80, lng: -122.42)
+        #expect(spot.distanceMiles(from: nil) == nil)
+        #expect(spot.distanceText(from: nil) == nil)
+    }
+
+    @Test func computesPlausibleMileageAndLabel() {
+        // ~0.8 km between these two SF points → well under a mile.
+        let origin = CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194)
+        let spot = SpotSummary.sample(id: "x", lat: 37.7805, lng: -122.4189)
+
+        let miles = spot.distanceMiles(from: origin)
+        #expect(miles != nil)
+        #expect(miles! > 0 && miles! < 1)
+        #expect(spot.distanceText(from: origin)?.hasSuffix("mi") == true)
+    }
+}

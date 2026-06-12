@@ -40,9 +40,13 @@ struct MapScreen: View {
                 SpotDetailScreen(spotID: spot.id)
             }
             .task {
+                location.start()
+                await viewModel.applyUserLocation(location.coordinate)
                 if viewModel.state == .idle { await viewModel.load() }
             }
-            .onAppear { location.start() }
+            .onChange(of: location.coordinate?.latitude) { _, _ in
+                Task { await viewModel.applyUserLocation(location.coordinate) }
+            }
         }
     }
 

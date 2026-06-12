@@ -2,12 +2,7 @@ import SwiftUI
 import MapKit
 import Observation
 
-nonisolated extension SpotSummary {
-    /// The spot's public coordinate, for placing it on a map.
-    var coordinate: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: publicLat, longitude: publicLng)
-    }
-}
+// `SpotSummary.coordinate` lives in Extensions/SpotSummary+Location.swift.
 
 @Observable
 @MainActor
@@ -26,6 +21,8 @@ final class MapViewModel {
     var searchText: String = ""               // visual only until map search is wired
     var selectedSpotID: String?
     var cameraPosition: MapCameraPosition = .automatic
+    /// The user's location (set by the screen), for real preview-card distances.
+    var userCoordinate: CLLocationCoordinate2D?
 
     /// Shown as a "Search this area" button once the user pans/zooms away from
     /// the region the current pins were loaded for.
@@ -45,12 +42,24 @@ final class MapViewModel {
         return spots.first { $0.id == selectedSpotID }
     }
 
+    /// Re-center on the user only once, when their first fix arrives.
+    private var hasCenteredOnUser = false
+
     // MARK: - Dependencies
 
     private let service: SpotService
+    private let defaultRadiusKm: Double = 50
 
     init(service: SpotService = AppServices.spot) {
         self.service = service
+    }
+
+    /// Where to query: around the user when known, else `nil` (the service falls
+    /// back to its default LA window).
+    private var queryRegion: SpotRegion? {
+        userCoordinate.map {
+            SpotRegion(latitude: $0.latitude, longitude: $0.longitude, radiusKm: defaultRadiusKm)
+        }
     }
 
     // MARK: - Actions
@@ -58,12 +67,26 @@ final class MapViewModel {
     func load() async {
         state = .loading
         do {
-            spots = try await service.fetchSpots()
+            spots = try await service.fetchSpots(near: queryRegion)
             state = .loaded
-            frameSpots()
+            if let userCoordinate {
+                centerOnUser(userCoordinate)
+            } else {
+                frameSpots()
+            }
         } catch {
             state = .failed(error.localizedDescription)
         }
+    }
+
+    /// Adopts the user's latest coordinate. On the first fix, re-fetches spots near
+    /// them and centers the camera on them; later fixes only refresh `userCoordinate`
+    /// (for distance labels), no reload.
+    func applyUserLocation(_ coordinate: CLLocationCoordinate2D?) async {
+        userCoordinate = coordinate
+        guard coordinate != nil, !hasCenteredOnUser else { return }
+        hasCenteredOnUser = true
+        await load()
     }
 
     /// Called when the map camera settles. Reveals the "Search this area"
@@ -121,10 +144,21 @@ final class MapViewModel {
         cameraPosition = .region(MKCoordinateRegion(center: coordinate, span: span))
     }
 
-    /// Placeholder distance until CoreLocation is wired. Deterministic per spot.
-    func distanceText(for spot: SpotSummary) -> String {
-        let miles = Double((abs(spot.id.hashValue) % 50) + 1) / 10.0
-        return "\(miles.formatted(.number.precision(.fractionLength(1)))) mi"
+    /// Centers the camera on the user and adopts that area as the "Search this area"
+    /// baseline, so panning away from the user's region reveals the button.
+    private func centerOnUser(_ coordinate: CLLocationCoordinate2D) {
+        let span = MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+        let region = MKCoordinateRegion(center: coordinate, span: span)
+        cameraPosition = .region(region)
+        let area = region.spotRegion
+        lastSearchedRegion = area
+        visibleRegion = area
+        showSearchArea = false
+    }
+
+    /// Real distance from the user to `spot`, or `nil` when there's no location.
+    func distanceText(for spot: SpotSummary) -> String? {
+        spot.distanceText(from: userCoordinate)
     }
 
     /// Frames the camera around all loaded spots, with a little padding.

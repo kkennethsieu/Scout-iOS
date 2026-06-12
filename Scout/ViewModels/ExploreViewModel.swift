@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 import Observation
 
 @Observable
@@ -28,6 +29,12 @@ final class ExploreViewModel {
     private(set) var region: SpotRegion?
     private(set) var placeName: String?
 
+    /// The user's location (set by the screen). Drives the default feed center and
+    /// real card distances; `nil` falls back to the service's default window.
+    var userCoordinate: CLLocationCoordinate2D?
+    /// Re-center the feed on the user only once, when their first fix arrives.
+    private var hasCenteredOnUser = false
+
     /// Static category chips for now; will come from the backend later.
     static let filters = ["All Spots", "Forest", "Coast", "Golden Hour"]
 
@@ -38,6 +45,15 @@ final class ExploreViewModel {
 
     private let service: SpotService
     private let pageSize = 20
+    private let defaultRadiusKm: Double = 50
+
+    /// Where to query: an explicit place wins, else center on the user, else `nil`
+    /// (the service falls back to its default LA window).
+    private var queryRegion: SpotRegion? {
+        region ?? userCoordinate.map {
+            SpotRegion(latitude: $0.latitude, longitude: $0.longitude, radiusKm: defaultRadiusKm)
+        }
+    }
 
     init(service: SpotService = AppServices.spot) {
         self.service = service
@@ -47,7 +63,7 @@ final class ExploreViewModel {
 
     var filteredSpots: [SpotSummary] {
         let matched = spots.filter { filters.matches($0) }
-        return sort.sorted(matched, distance: distance(for:))
+        return sort.sorted(matched, distance: sortDistance(for:))
     }
 
     var spotCountText: String {
@@ -73,7 +89,7 @@ final class ExploreViewModel {
         state = .loading
         cursor = nil
         do {
-            let page = try await service.fetchSpots(near: region, limit: pageSize, cursor: nil)
+            let page = try await service.fetchSpots(near: queryRegion, limit: pageSize, cursor: nil)
             spots = page.items
             cursor = page.nextCursor
             hasMore = page.nextCursor != nil
@@ -90,10 +106,20 @@ final class ExploreViewModel {
         await load()
     }
 
-    /// Clears the place scope and reloads the default feed.
+    /// Clears the place scope and reloads the default feed (re-centers on the user).
     func clearPlace() async {
         region = nil
         placeName = nil
+        await load()
+    }
+
+    /// Adopts the user's latest coordinate. Refreshes card distances always, and
+    /// re-centers the default feed once, when the first fix arrives (a place scope
+    /// is never overridden).
+    func applyUserLocation(_ coordinate: CLLocationCoordinate2D?) async {
+        userCoordinate = coordinate
+        guard coordinate != nil, region == nil, !hasCenteredOnUser else { return }
+        hasCenteredOnUser = true
         await load()
     }
 
@@ -105,7 +131,7 @@ final class ExploreViewModel {
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
-            let page = try await service.fetchSpots(near: region, limit: pageSize, cursor: cursor)
+            let page = try await service.fetchSpots(near: queryRegion, limit: pageSize, cursor: cursor)
             spots.append(contentsOf: page.items)
             self.cursor = page.nextCursor
             hasMore = page.nextCursor != nil
@@ -114,14 +140,15 @@ final class ExploreViewModel {
         }
     }
 
-    /// Placeholder distance in miles until CoreLocation is wired. Deterministic
-    /// per spot so the UI doesn't flicker between renders.
-    func distance(for spot: SpotSummary) -> Double {
-        Double((abs(spot.id.hashValue) % 50) + 1) / 10.0
+    /// Real distance label from the user to `spot`, or `nil` when there's no
+    /// location (the card then hides the distance).
+    func distanceText(for spot: SpotSummary) -> String? {
+        spot.distanceText(from: userCoordinate)
     }
 
-    func distanceText(for spot: SpotSummary) -> String {
-        let miles = distance(for: spot).formatted(.number.precision(.fractionLength(1)))
-        return "\(miles) miles away"
+    /// Sort key for `.closest`. With no location every spot sorts equal, so the
+    /// stable sort preserves server order.
+    private func sortDistance(for spot: SpotSummary) -> Double {
+        spot.distanceMiles(from: userCoordinate) ?? .greatestFiniteMagnitude
     }
 }

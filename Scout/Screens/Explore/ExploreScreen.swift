@@ -1,7 +1,9 @@
 import SwiftUI
+import CoreLocation
 
 struct ExploreScreen: View {
     @State private var viewModel: ExploreViewModel
+    @State private var location = LocationManager()
     @State private var savedSpotIDs: Set<String> = []
     @State private var showFilters = false
     @State private var showSort = false
@@ -83,7 +85,12 @@ struct ExploreScreen: View {
                 ExploreSortSheet(selection: $viewModel.sort)
             }
             .task {
+                location.start()   // passive — the primer handles the prompt
+                await viewModel.applyUserLocation(location.coordinate)
                 if viewModel.state == .idle { await viewModel.load() }
+            }
+            .onChange(of: location.coordinate?.latitude) { _, _ in
+                Task { await viewModel.applyUserLocation(location.coordinate) }
             }
         }
     }
