@@ -30,9 +30,15 @@ jobs:
           xcode-version: '26.1'
 
       - name: Show versions
-        run: |
-          xcodebuild -version
-          xcrun simctl list devices available | grep -i "iPhone 17" || true
+        run: xcodebuild -version
+
+      # Xcode 26.x ships without the iOS simulator runtime bundled — download it,
+      # otherwise there are no iPhone 17 / iOS 26.1 destinations to build against.
+      - name: Install iOS 26.1 simulator runtime
+        run: xcodebuild -downloadPlatform iOS
+
+      - name: List available simulators
+        run: xcrun simctl list devices available | grep -i "iPhone 17" || true
 
       # GoogleService-Info.plist is gitignored, so recreate it from a base64 secret.
       # Firebase fatal-errors at launch without it, which would crash the test host.
