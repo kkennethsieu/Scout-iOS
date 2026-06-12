@@ -32,13 +32,32 @@ jobs:
       - name: Show versions
         run: xcodebuild -version
 
-      # Xcode 26.x ships without the iOS simulator runtime bundled — download it,
-      # otherwise there are no iPhone 17 / iOS 26.1 destinations to build against.
-      - name: Install iOS 26.1 simulator runtime
-        run: xcodebuild -downloadPlatform iOS
+      # Cache the downloaded iOS simulator runtime (multi-GB) so it only downloads once.
+      - name: Cache iOS simulator runtime
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/CoreSimulator/Images
+          key: ios-sim-runtime-26.1
 
-      - name: List available simulators
-        run: xcrun simctl list devices available | grep -i "iPhone 17" || true
+      # Xcode 26.x ships without the iOS simulator runtime bundled. Download it only
+      # if the cache restore didn't already provide it (self-healing on a cache miss).
+      - name: Ensure iOS 26.1 simulator runtime
+        run: |
+          if xcrun simctl list runtimes | grep -q "iOS 26.1"; then
+            echo "iOS 26.1 runtime present — skipping download."
+          else
+            echo "iOS 26.1 runtime missing — downloading."
+            xcodebuild -downloadPlatform iOS
+          fi
+
+      # Cache the cloned Swift Package sources (Firebase, GoogleSignIn) keyed on the
+      # resolved versions, so they aren't re-fetched from GitHub every run.
+      - name: Cache Swift Package dependencies
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-
 
       # GoogleService-Info.plist is gitignored, so recreate it from a base64 secret.
       # Firebase fatal-errors at launch without it, which would crash the test host.
@@ -53,22 +72,14 @@ jobs:
           echo "$GOOGLE_SERVICE_INFO_PLIST_BASE64" | base64 --decode > Scout/GoogleService-Info.plist
           plutil -lint Scout/GoogleService-Info.plist
 
-      - name: Build
-        run: |
-          set -o pipefail
-          xcodebuild build \
-            -project "$PROJECT" \
-            -scheme "$SCHEME" \
-            -destination "$DESTINATION" \
-            CODE_SIGNING_ALLOWED=NO \
-            | xcbeautify
-
-      - name: Test
+      # `test` already builds the app + tests, so there's no separate build step.
+      - name: Build & test
         run: |
           set -o pipefail
           xcodebuild test \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
             -destination "$DESTINATION" \
+            -clonedSourcePackagesDirPath .spm \
             CODE_SIGNING_ALLOWED=NO \
             | xcbeautify
