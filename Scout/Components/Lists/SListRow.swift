@@ -51,7 +51,20 @@ struct SListRow: View {
             .padding(.vertical, Spacing.md)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableRowStyle())
+    }
+}
+
+// MARK: - Press feedback
+
+/// Subtle fade + scale on press so a tap reads as responsive (e.g. before a
+/// confirmation dialog slides up) instead of feeling instant.
+private struct PressableRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.5 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

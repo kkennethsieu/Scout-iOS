@@ -28,4 +28,8 @@ enum AppServices {
 //        MockUserService()
 //        #endif
     }
+
+    static var legal: LegalService {
+        LiveLegalService()
+    }
 }

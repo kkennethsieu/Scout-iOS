@@ -7,12 +7,21 @@ import SwiftUI
 struct SettingsScreen: View {
     @State private var viewModel: ProfileViewModel
     @Environment(AuthService.self) private var auth
+    @Environment(\.openURL) private var openURL
 
+    /// Presents the "log out" confirmation dialog.
+    @State private var showLogOutConfirm = false
     /// Presents the "delete account" confirmation dialog.
     @State private var showDeleteAccountConfirm = false
+    /// Hosted legal links (`GET /legal`); `nil` until loaded — the Legal rows stay
+    /// disabled until then.
+    @State private var legal: LegalResponse?
 
-    init(viewModel: ProfileViewModel) {
+    private let legalService: LegalService
+
+    init(viewModel: ProfileViewModel, legalService: LegalService = AppServices.legal) {
         _viewModel = State(initialValue: viewModel)
+        self.legalService = legalService
     }
 
     var body: some View {
@@ -31,6 +40,19 @@ struct SettingsScreen: View {
             SNavHeader(title: "Settings")
         }
         .toolbar(.hidden, for: .navigationBar)
+        .task { legal = try? await legalService.fetchLegalLinks() }
+        .confirmationDialog(
+            "Log out?",
+            isPresented: $showLogOutConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Log out", role: .destructive) {
+                try? auth.signOut()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You'll need to sign in again to access your account.")
+        }
         .confirmationDialog(
             "Delete your account?",
             isPresented: $showDeleteAccountConfirm,
@@ -85,16 +107,23 @@ struct SettingsScreen: View {
     private var legalSection: some View {
         SSection(title: "Legal", titleFont: .sHeadingS) {
             SListGroup {
-                SListRow(title: "Privacy Policy") {}
-                SListRow(title: "Terms of Service") {}
+                SListRow(title: "Privacy Policy") { open(legal?.privacyPolicyUrl) }
+                SListRow(title: "Terms of Service") { open(legal?.termsOfServiceUrl) }
             }
+            .disabled(legal == nil)
         }
+    }
+
+    /// Opens a legal link in the system browser (no-op if it's missing/malformed).
+    private func open(_ link: String?) {
+        guard let link, let url = URL(string: link) else { return }
+        openURL(url)
     }
 
     private var accountActions: some View {
         SListGroup {
             SListRow(title: "Log out") {
-                try? auth.signOut()
+                showLogOutConfirm = true
             }
             SListRow(title: "Delete account", isDestructive: true) {
                 showDeleteAccountConfirm = true
@@ -115,7 +144,10 @@ struct SettingsScreen: View {
 
 #Preview("Settings") {
     NavigationStack {
-        SettingsScreen(viewModel: ProfileViewModel(userService: MockUserService()))
+        SettingsScreen(
+            viewModel: ProfileViewModel(userService: MockUserService()),
+            legalService: MockLegalService()
+        )
     }
     .environment(AuthService.shared)
 }

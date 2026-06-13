@@ -51,7 +51,11 @@ struct ProfileScreen: View {
                 SettingsScreen(viewModel: viewModel)
             }
             .navigationDestination(isPresented: $showEditProfile) {
-                EditProfileScreen()
+                if let profile = viewModel.profile {
+                    EditProfileScreen(profile: profile) { updated in
+                        viewModel.applyUpdatedProfile(updated)
+                    }
+                }
             }
         }
         .task(id: isActive) {
@@ -73,6 +77,7 @@ struct ProfileScreen: View {
 
             Menu{
                 Button("Edit profile") { showEditProfile = true }
+                    .disabled(viewModel.profile == nil)
             } label: {
                 icon("ellipsis")
             }

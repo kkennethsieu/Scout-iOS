@@ -34,6 +34,8 @@ struct ProfileViewModelTests {
         func deleteAccount() async throws {
             if let accountDeleteError { throw accountDeleteError }
         }
+
+        func updateProfile(_ update: ProfileUpdate) async throws -> UserProfile { profile }
     }
 
     /// A service whose `deleteReview` blocks until `release` yields, so a test can
@@ -50,6 +52,7 @@ struct ProfileViewModelTests {
             _ = await iterator.next()
         }
         func deleteAccount() async throws {}
+        func updateProfile(_ update: ProfileUpdate) async throws -> UserProfile { profile }
     }
 
     private func review(_ id: String) -> Review {
@@ -82,7 +85,7 @@ struct ProfileViewModelTests {
 
     @Test func loadPopulatesProfileAndFirstPage() async {
         let service = StubService(
-            profile: UserProfile(id: "u1", displayName: "Marcus Chen",
+            profile: UserProfile(id: "u1", email: "marcus@example.com", displayName: "Marcus Chen",
                                  homeCity: "San Francisco", homeCountry: "CA",
                                  photoUrl: nil, reviewCount: 42),
             pages: [nil: PaginatedReviews(items: [review("a"), review("b")], limit: 10, nextCursor: "p2")]
@@ -147,7 +150,7 @@ struct ProfileViewModelTests {
 
     @Test func deleteRemovesReviewAndDecrementsCount() async {
         let service = StubService(
-            profile: UserProfile(id: "u1", displayName: "Marcus Chen",
+            profile: UserProfile(id: "u1", email: "marcus@example.com", displayName: "Marcus Chen",
                                  homeCity: "SF", homeCountry: "CA",
                                  photoUrl: nil, reviewCount: 2),
             pages: [nil: PaginatedReviews(items: [review("a"), review("b")], limit: 10, nextCursor: nil)]
@@ -164,7 +167,7 @@ struct ProfileViewModelTests {
 
     @Test func deleteFailureSetsErrorAndKeepsReview() async {
         var service = StubService(
-            profile: UserProfile(id: "u1", displayName: "Marcus Chen",
+            profile: UserProfile(id: "u1", email: "marcus@example.com", displayName: "Marcus Chen",
                                  homeCity: "SF", homeCountry: "CA",
                                  photoUrl: nil, reviewCount: 2),
             pages: [nil: PaginatedReviews(items: [review("a"), review("b")], limit: 10, nextCursor: nil)]

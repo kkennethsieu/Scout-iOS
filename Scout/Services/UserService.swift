@@ -9,6 +9,9 @@ nonisolated protocol UserService {
     /// The current user's reviews, newest first, cursor-paginated. Pass the
     /// previous page's `nextCursor` to fetch the next page (`nil` for page one).
     func fetchMyReviews(limit: Int, cursor: String?) async throws -> PaginatedReviews
+    /// Applies a partial profile update (`PATCH /users/me`, multipart) and returns
+    /// the updated profile. Backs Edit Profile's "Save".
+    func updateProfile(_ update: ProfileUpdate) async throws -> UserProfile
     /// Deletes one of the caller's own reviews (`DELETE /reviews/{id}`).
     func deleteReview(id: String) async throws
     /// Permanently deletes the caller's account (`DELETE /users/me`): the backend
@@ -36,6 +39,22 @@ nonisolated struct MockUserService: UserService {
         default:
             return PaginatedReviews(items: Review.samples, limit: limit, nextCursor: nil)
         }
+    }
+
+    func updateProfile(_ update: ProfileUpdate) async throws -> UserProfile {
+        try await Task.sleep(for: delay)
+        let base = UserProfile.sample
+        return UserProfile(
+            id: base.id,
+            email: base.email,
+            displayName: update.displayName ?? base.displayName,
+            homeCity: update.homeCity ?? base.homeCity,
+            homeCountry: update.homeCountry ?? base.homeCountry,
+            photoUrl: base.photoUrl,
+            reviewCount: base.reviewCount,
+            emailNotifications: base.emailNotifications,
+            pushNotifications: base.pushNotifications
+        )
     }
 
     func deleteReview(id: String) async throws {

@@ -128,6 +128,12 @@ final class ProfileViewModel {
         deleteError = nil
     }
 
+    /// Adopts a profile returned from Edit Profile's save, so the header reflects
+    /// the edits immediately without a refetch.
+    func applyUpdatedProfile(_ profile: UserProfile) {
+        self.profile = profile
+    }
+
     // MARK: - Account deletion
 
     /// Permanently deletes the user's account on the backend (which also removes
