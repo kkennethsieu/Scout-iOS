@@ -34,6 +34,15 @@ final class TabBarVisibility {
     var isHidden = false
 }
 
+/// Owns the selected tab so any screen can switch tabs programmatically (e.g. an
+/// empty-state CTA that sends the user to Explore). Injected via `.environment`
+/// by `MainTabView`, which also binds the tab bar to it.
+@MainActor
+@Observable
+final class TabRouter {
+    var selection: MainTab = .explore
+}
+
 /// Custom bottom tab bar. Replaces SwiftUI's `TabView` bar (and its backing
 /// `UITabBarController`) so the center "+" can present a sheet without the tab
 /// bar ever committing a selection change — which is what caused the one-frame

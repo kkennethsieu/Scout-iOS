@@ -29,6 +29,16 @@ enum AppServices {
 //        #endif
     }
 
+    static var savedLists: SavedListService {
+        LiveSavedListService()
+//
+//        #if targetEnvironment(simulator)
+//        LiveSavedListService()
+//        #else
+//        MockSavedListService()
+//        #endif
+    }
+
     static var legal: LegalService {
         LiveLegalService()
     }

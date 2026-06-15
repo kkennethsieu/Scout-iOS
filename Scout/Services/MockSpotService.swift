@@ -85,3 +85,14 @@ extension JSONDecoder {
         return decoder
     }()
 }
+
+extension JSONEncoder {
+    /// Mirror of `JSONDecoder.scout` for request bodies: camelCase → snake_case
+    /// keys, ISO-8601 dates.
+    static let scout: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+}

@@ -4,9 +4,10 @@ import SwiftUI
 /// with floating back / share / save controls.
 struct SpotDetailHero: View {
     let photos: [URL]
-    @Binding var isSaved: Bool
+    var isSaved: Bool
     var onBack: () -> Void
     var onShare: () -> Void
+    var onTapSave: () -> Void = {}
 
     @State private var page = 0
 
@@ -19,7 +20,7 @@ struct SpotDetailHero: View {
                 Spacer()
                 HStack(spacing: Spacing.md) {
                     circleIcon("square.and.arrow.up", action: onShare)
-                    circleIcon(isSaved ? "bookmark.fill" : "bookmark") { isSaved.toggle() }
+                    circleIcon(isSaved ? "bookmark.fill" : "bookmark", action: onTapSave)
                 }
             }
             .padding(.horizontal, Spacing.lg)
