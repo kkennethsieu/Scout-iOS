@@ -4,7 +4,8 @@ import CoreLocation
 struct ExploreScreen: View {
     @State private var viewModel: ExploreViewModel
     @State private var location = LocationManager()
-    @State private var savedSpotIDs: Set<String> = []
+    @Environment(SavedStore.self) private var savedStore: SavedStore?
+    @State private var saveTarget: SpotSummary?
     @State private var showFilters = false
     @State private var showSort = false
     @State private var path = NavigationPath()
@@ -84,6 +85,9 @@ struct ExploreScreen: View {
             .sheet(isPresented: $showSort) {
                 ExploreSortSheet(selection: $viewModel.sort)
             }
+            .sheet(item: $saveTarget) { spot in
+                SaveToListSheet(spotID: spot.id)
+            }
             .task {
                 location.start()   // passive — the primer handles the prompt
                 await viewModel.applyUserLocation(location.coordinate)
@@ -151,9 +155,9 @@ struct ExploreScreen: View {
                     SpotCard(
                         spot: spot,
                         distance: viewModel.distanceText(for: spot),
-                        isSaved: savedSpotIDs.contains(spot.id)
+                        isSaved: savedStore?.isSaved(spot.id) ?? false
                     ) {
-                        toggleSave(spot)
+                        saveTarget = spot
                     }
                 }
                 .buttonStyle(.plain)
@@ -175,15 +179,6 @@ struct ExploreScreen: View {
         .padding(.top, Spacing.xs)
     }
 
-    // MARK: - Actions
-
-    private func toggleSave(_ spot: SpotSummary) {
-        if savedSpotIDs.contains(spot.id) {
-            savedSpotIDs.remove(spot.id)
-        } else {
-            savedSpotIDs.insert(spot.id)
-        }
-    }
 }
 
 /// Path value that pushes the search screen onto Explore's stack.

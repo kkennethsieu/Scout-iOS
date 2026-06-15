@@ -35,6 +35,31 @@ nonisolated struct BackendClient {
         return try decode(T.self, from: data, response: response)
     }
 
+    /// Performs an authenticated POST with a JSON body and decodes the response.
+    func post<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
+        try await send("POST", path, body: body)
+    }
+
+    /// Performs an authenticated PATCH with a JSON body and decodes the response.
+    func patch<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
+        try await send("PATCH", path, body: body)
+    }
+
+    /// Shared JSON-body request path for POST/PATCH.
+    private func send<T: Decodable>(_ method: String, _ path: String, body: some Encodable) async throws -> T {
+        var request = URLRequest(url: baseURL.appending(path: path))
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let bearer = try await token() {
+            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = try JSONEncoder.scout.encode(body)
+
+        let (data, response) = try await session.data(for: request)
+        return try decode(T.self, from: data, response: response)
+    }
+
     /// Performs an authenticated DELETE with no response body (expects 204).
     func delete(_ path: String) async throws {
         var request = URLRequest(url: baseURL.appending(path: path))

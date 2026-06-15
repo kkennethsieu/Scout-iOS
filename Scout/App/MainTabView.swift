@@ -2,9 +2,12 @@ import SwiftUI
 import CoreLocation
 
 struct MainTabView: View {
-    @State private var selection: MainTab = .explore
+    @State private var router = TabRouter()
     @State private var showCreateSheet = false
     @State private var tabBarVisibility = TabBarVisibility()
+    @State private var savedStore = SavedStore()
+
+    private var selection: MainTab { router.selection }
 
     @State private var location = LocationManager()
     @State private var showLocationPrimer = false
@@ -15,7 +18,7 @@ struct MainTabView: View {
         content
             .safeAreaInset(edge: .bottom, spacing: 10) {
                 if !tabBarVisibility.isHidden {
-                    STabBar(selection: $selection) {
+                    STabBar(selection: $router.selection) {
                         showCreateSheet = true
                     }
                     .transition(.move(edge: .bottom))
@@ -23,6 +26,9 @@ struct MainTabView: View {
             }
             .animation(.easeInOut(duration: 0.1), value: tabBarVisibility.isHidden)
             .environment(tabBarVisibility)
+            .environment(router)
+            .environment(savedStore)
+            .task { await savedStore.load() }
             .modifier(CreateSpotFlow(isPresented: $showCreateSheet))
             .sheet(isPresented: $showLocationPrimer, onDismiss: { hasRequestedLocation = true }) {
                 LocationPrimerSheet(
@@ -48,7 +54,7 @@ struct MainTabView: View {
         ZStack {
             tabContent(.explore) { ExploreScreen() }
             tabContent(.map) { MapScreen() }
-            tabContent(.saved) { SavedView() }
+            tabContent(.saved) { SavedScreen(isActive: selection == .saved) }
             tabContent(.profile) { ProfileScreen(isActive: selection == .profile) }
         }
     }
@@ -59,20 +65,6 @@ struct MainTabView: View {
             .opacity(selection == tab ? 1 : 0)
             .allowsHitTesting(selection == tab)
             .zIndex(selection == tab ? 1 : 0)
-    }
-}
-
-// MARK: - Placeholder Views
-
-struct SavedView: View {
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.sBackground.ignoresSafeArea()
-                Text("Saved").font(.sHeadingM).foregroundStyle(Color.sTextPrimary)
-            }
-            .navigationTitle("Saved")
-        }
     }
 }
 
