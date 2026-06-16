@@ -16,6 +16,8 @@ struct ProfileReviewCard: View {
     private let notesLineLimit = 2
     @State private var fullNotesHeight: CGFloat = 0
     @State private var clampedNotesHeight: CGFloat = 0
+    /// Notes start clamped to `notesLineLimit`; "See more" expands them in place.
+    @State private var notesExpanded = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -130,7 +132,7 @@ struct ProfileReviewCard: View {
             Text(notes)
                 .font(.sBody)
                 .foregroundStyle(Color.sTextSecondary)
-                .lineLimit(notesLineLimit)
+                .lineLimit(notesExpanded ? nil : notesLineLimit)
                 .fixedSize(horizontal: false, vertical: true)
                 .background {
                     // Measure the same text unconstrained; if it's taller than the
@@ -153,11 +155,14 @@ struct ProfileReviewCard: View {
                 .onPreferenceChange(FullHeightKey.self) { fullNotesHeight = $0 }
                 .onPreferenceChange(ClampedHeightKey.self) { clampedNotesHeight = $0 }
 
-            // Only offer "See more" when the notes are actually truncated.
+            // Only offer the toggle when the notes are actually truncated;
+            // `isNotesTruncated` is measured independently of `notesExpanded`,
+            // so the control stays visible (as "See less") once expanded.
             if isNotesTruncated {
-                // Stubbed for now — opens the full review once wired.
-                Button {} label: {
-                    Text("See more")
+                Button {
+                    notesExpanded.toggle()
+                } label: {
+                    Text(notesExpanded ? "See less" : "See more")
                         .font(.sHeadingS)
                         .foregroundStyle(Color.sTextPrimary)
                 }

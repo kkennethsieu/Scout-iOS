@@ -1,5 +1,8 @@
 import SwiftUI
 import CoreLocation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Presents the create-spot flow. Apply once (e.g. on `MainTabView`) and toggle
 /// `isPresented`.
@@ -42,6 +45,14 @@ struct CreateSpotFlow: ViewModifier {
         let spotID: String
     }
 
+    /// The "can't determine location" sheet (no usable photo GPS + denied
+    /// location). Carries the photo data so a future "retry this photo" can reuse
+    /// it; "pick a different photo" just reopens the entry sheet.
+    private struct ErrorRoute: Identifiable {
+        let id = UUID()
+        var photoData: Data?
+    }
+
     /// Captured on the user's choice; the map is presented from the entry
     /// sheet's `onDismiss` so the two presentations don't overlap.
     @State private var pending: MapRoute?
@@ -54,17 +65,35 @@ struct CreateSpotFlow: ViewModifier {
     @State private var success: SuccessRoute?
     @State private var pendingDetail: DetailRoute?
     @State private var detail: DetailRoute?
+    /// The location-error sheet, presented after the entry sheet dismisses (two
+    /// sheets can't overlap), mirroring the map hand-off.
+    @State private var pendingError: ErrorRoute?
+    @State private var errorRoute: ErrorRoute?
+    /// "Pick a different photo" tapped — reopen the entry sheet once the error
+    /// sheet has dismissed.
+    @State private var pendingReopen = false
     /// Warmed up while the entry sheet is open so the current location is ready
     /// the moment the user taps "use my current location".
     @State private var location = LocationManager()
 
     func body(content: Content) -> some View {
         content
-            .sheet(isPresented: $isPresented, onDismiss: presentMapIfPending) {
+            .sheet(isPresented: $isPresented, onDismiss: onEntryDismissed) {
                 ShareSpotSheet(
                     onPhotoPicked: { data in
-                        let metadata = PhotoMetadata(data: data)
-                        choose(.photo(metadata.coordinate), photoData: data)
+                        let coordinate = PhotoMetadata(data: data).coordinate
+                        switch Self.photoRoute(coordinate: coordinate,
+                                               authorization: location.authorizationStatus) {
+                        case .map(let seed):
+                            choose(.photo(seed), photoData: data)
+                        case .requestLocationThenMap:
+                            // Permission not asked yet — prompt, then let the map
+                            // adopt the device location as its fallback.
+                            location.requestPermission()
+                            choose(.photo(nil), photoData: data)
+                        case .locationError:
+                            presentError(photoData: data)
+                        }
                     },
                     onUseCurrentLocation: {
                         // Centre the map on the current location (synchronous in
@@ -96,6 +125,20 @@ struct CreateSpotFlow: ViewModifier {
                     SpotDetailScreen(spotID: route.spotID)
                 }
             }
+            .sheet(item: $errorRoute, onDismiss: onErrorDismissed) { _ in
+                LocationErrorSheet(
+                    onPickDifferentPhoto: {
+                        // Reopen the entry sheet (its photo picker) once this
+                        // sheet dismisses.
+                        pendingReopen = true
+                        errorRoute = nil
+                    },
+                    onEnableLocation: {
+                        openLocationSettings()
+                        errorRoute = nil
+                    }
+                )
+            }
     }
 
     /// Records the choice, creates the review accumulator, and dismisses the
@@ -104,14 +147,90 @@ struct CreateSpotFlow: ViewModifier {
         let review = Self.makeReview(entry: entry, photoData: photoData)
         pending = MapRoute(entry: entry, photoData: photoData, review: review)
         isPresented = false
-        // TODO: if photo had no GPS *and* location permission is denied, route
-        // to LocationErrorSheet instead of the map.
     }
 
-    private func presentMapIfPending() {
-        guard let pending else { return }
-        route = pending
-        self.pending = nil
+    /// Records the location-error case and dismisses the entry sheet; the error
+    /// sheet opens once the entry sheet is fully gone.
+    private func presentError(photoData: Data?) {
+        pendingError = ErrorRoute(photoData: photoData)
+        isPresented = false
+    }
+
+    /// The entry sheet dismissed — promote whichever step is pending (map wins;
+    /// otherwise the location-error sheet).
+    private func onEntryDismissed() {
+        if let pending {
+            route = pending
+            self.pending = nil
+        } else if let pendingError {
+            errorRoute = pendingError
+            self.pendingError = nil
+        }
+    }
+
+    /// The error sheet dismissed — reopen the entry sheet if the user chose
+    /// "pick a different photo".
+    private func onErrorDismissed() {
+        guard pendingReopen else { return }
+        pendingReopen = false
+        isPresented = true
+    }
+
+    /// Opens the system Settings so the user can grant location access (the
+    /// in-app prompt won't re-appear once denied). iOS only; no-op elsewhere.
+    private func openLocationSettings() {
+        #if os(iOS)
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+        #endif
+    }
+
+    // MARK: - Photo routing
+
+    /// Where a picked photo should take the user, from its EXIF coordinate and the
+    /// current location authorization. Pure so it's unit-testable.
+    enum PhotoEntryRoute: Equatable {
+        /// Open the map seeded with this coordinate (`nil` → the map adopts the
+        /// device location as its fallback).
+        case map(CLLocationCoordinate2D?)
+        /// No usable GPS and permission not yet asked — request it, then map(nil).
+        case requestLocationThenMap
+        /// No usable GPS and location is denied/restricted — show the error sheet.
+        case locationError
+
+        nonisolated static func == (lhs: PhotoEntryRoute, rhs: PhotoEntryRoute) -> Bool {
+            switch (lhs, rhs) {
+            case (.requestLocationThenMap, .requestLocationThenMap),
+                 (.locationError, .locationError):
+                return true
+            case let (.map(a), .map(b)):
+                return a?.latitude == b?.latitude && a?.longitude == b?.longitude
+            default:
+                return false
+            }
+        }
+    }
+
+    /// Reuses `CreateMapViewModel.sanitized` to reject missing / null-island GPS.
+    nonisolated static func photoRoute(coordinate: CLLocationCoordinate2D?,
+                                       authorization: CLAuthorizationStatus) -> PhotoEntryRoute {
+        if let valid = CreateMapViewModel.sanitized(coordinate) {
+            return .map(valid)
+        }
+        switch authorization {
+        case .notDetermined:
+            return .requestLocationThenMap
+        #if os(macOS)
+        case .authorized, .authorizedAlways:
+            return .map(nil)
+        #else
+        case .authorizedWhenInUse, .authorizedAlways:
+            return .map(nil)
+        #endif
+        default:
+            return .locationError
+        }
     }
 
     // MARK: - Success / detail hand-offs
@@ -198,15 +317,26 @@ private struct CreateFlowContainer: View {
 
 // MARK: - Success host
 
-/// Hosts `SuccessScreen` and owns its local-only Save toggle (a cover's content
-/// closure can't hold `@State`). There's no save endpoint yet — the Saved tab is
-/// a placeholder; `review.resultSpotID` is the key for when one lands.
+/// Hosts `SuccessScreen` and drives its Save affordance: tapping the bookmark
+/// opens the shared `SaveToListSheet`, and the filled/empty state is derived from
+/// the app-wide `SavedStore` (so it reflects real list membership and updates as
+/// soon as the sheet commits). A cover's content closure can't hold `@State`,
+/// hence this wrapper.
 private struct SuccessHost: View {
     let review: CreateReviewViewModel
     var onSeeSpot: () -> Void
     var onDone: () -> Void
 
-    @State private var isSaved = false
+    /// Injected on `content` in `MainTabView`, inherited by this cover. Optional
+    /// so previews (which don't inject it) still render.
+    @Environment(SavedStore.self) private var store: SavedStore?
+    @State private var showSaveSheet = false
+
+    /// Filled when the just-created spot is in at least one list.
+    private var isSaved: Bool {
+        guard let id = review.resultSpotID else { return false }
+        return store?.isSaved(id) ?? false
+    }
 
     var body: some View {
         SuccessScreen(
@@ -216,9 +346,14 @@ private struct SuccessHost: View {
             photos: review.resultPhotos,
             isNewSpot: review.isNewSpot,
             isSaved: isSaved,
-            onTapSave: { isSaved.toggle() },
+            onTapSave: { if review.resultSpotID != nil { showSaveSheet = true } },
             onSeeSpot: onSeeSpot,
             onDone: onDone
         )
+        .sheet(isPresented: $showSaveSheet) {
+            if let id = review.resultSpotID {
+                SaveToListSheet(spotID: id)
+            }
+        }
     }
 }

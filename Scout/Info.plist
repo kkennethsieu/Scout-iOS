@@ -18,13 +18,8 @@
 	<string>991715986191-7fe0npl4ekultmqal0jbrlofpdl4b3la.apps.googleusercontent.com</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<!-- Allow cleartext HTTP to the local dev backend (localhost:8000). -->
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSCameraUsageDescription</key>
-	<string>Scout uses your camera to take photos of a spot for your review.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Scout uses your location to show nearby photo spots and center the map on you.</string>
 </dict>
 </plist>

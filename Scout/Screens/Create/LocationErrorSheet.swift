@@ -4,7 +4,8 @@ import SwiftUI
 /// uploaded photo has no GPS EXIF and/or location access is unavailable. Offers
 /// the two recovery paths plus a cancel.
 ///
-/// Not wired yet — the actions are stubs.
+/// The owner wires the actions via the callbacks (reopen the photo picker /
+/// open Settings).
 struct LocationErrorSheet: View {
     /// Try again with a different photo (re-opens the photo picker).
     var onPickDifferentPhoto: () -> Void = {}
@@ -59,12 +60,10 @@ struct LocationErrorSheet: View {
     private var actions: some View {
         VStack(spacing: Spacing.md) {
             SPrimaryButton(title: "Pick a different photo") {
-                // TODO: re-open the photo picker
                 onPickDifferentPhoto()
             }
 
             SSecondaryButton(title: "Enable location permissions") {
-                // TODO: route to location permission settings
                 onEnableLocation()
             }
 
