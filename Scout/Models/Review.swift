@@ -17,6 +17,10 @@ nonisolated struct Review: Identifiable, Decodable, Hashable {
     let city: String
     let adminArea: String
     let userId: String
+    /// Author identity denormalized onto the review by the backend. Optional for
+    /// legacy docs / partial responses; the photo is nullable even when present.
+    let authorName: String?
+    let authorPhotoUrl: URL?
     let photoUrls: [URL]
     // Only required review content.
     let overallRating: Int
@@ -40,6 +44,12 @@ nonisolated struct Review: Identifiable, Decodable, Hashable {
 
     /// Season values resolved to display models (unknown values dropped).
     var seasons: [Season] { bestSeason.compactMap(Season.init(raw:)) }
+
+    /// Author's display name, or a fallback when the backend omits/blanks it.
+    var authorDisplayName: String {
+        let trimmed = authorName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (trimmed?.isEmpty == false) ? trimmed! : "Unknown User"
+    }
 }
 
 // MARK: - Sample data
@@ -55,6 +65,8 @@ nonisolated extension Review {
             city: "Seattle",
             adminArea: "WA",
             userId: "u1",
+            authorName: "Alice Chen",
+            authorPhotoUrl: URL(string: "https://i.pravatar.cc/150?img=5"),
             photoUrls: [
                 URL(string: "https://picsum.photos/seed/review-a/600/600")!,
                 URL(string: "https://picsum.photos/seed/review-b/600/600")!
@@ -82,6 +94,8 @@ nonisolated extension Review {
             city: "Portland",
             adminArea: "OR",
             userId: "u2",
+            authorName: nil,
+            authorPhotoUrl: nil,
             photoUrls: [URL(string: "https://picsum.photos/seed/review-c/600/600")!],
             overallRating: 4,
             notes: "Stunning spot but the trail in was steeper than expected. Worth it for the symmetry of the reflection at blue hour.",

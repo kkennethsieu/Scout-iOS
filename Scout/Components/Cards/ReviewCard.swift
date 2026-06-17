@@ -4,8 +4,6 @@ import SwiftUI
 /// and a like/comment footer.
 struct ReviewCard: View {
     let review: Review
-    var authorName: String = "Marcus Thorne"
-    var avatarURL: URL? = nil
     var likeCount: Int = 24
     var commentCount: Int = 3
 
@@ -34,7 +32,7 @@ struct ReviewCard: View {
             avatar
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(authorName)
+                Text(review.authorDisplayName)
                     .font(.sHeadingS)
                     .foregroundStyle(Color.sTextPrimary)
                 Text(review.createdAt, format: .relative(presentation: .named))
@@ -49,7 +47,7 @@ struct ReviewCard: View {
     }
 
     private var avatar: some View {
-        SAvatar(url: avatarURL, size: 32)
+        SAvatar(url: review.authorPhotoUrl, size: 32)
     }
 
     private var stars: some View {

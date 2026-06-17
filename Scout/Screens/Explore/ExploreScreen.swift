@@ -36,12 +36,6 @@ struct ExploreScreen: View {
                                 Spacer(minLength: 0)
                             }
                         }
-                        ExploreFilterRow(
-                            filters: ExploreViewModel.filters,
-                            selected: viewModel.selectedFilter
-                        ) { filter in
-                            viewModel.selectedFilter = filter
-                        }
                         ExploreHeaderRow(
                             countText: viewModel.spotCountText,
                             sortLabel: viewModel.sort.label
@@ -55,11 +49,6 @@ struct ExploreScreen: View {
                     .padding(.bottom, Spacing.xxxl)
                 }
                 .scrollDismissesKeyboard(.interactively)
-
-                ExplorePostButton {
-                    // TODO: present create/review flow
-                }
-                .padding(Spacing.lg)
             }
             .padding(.bottom, Spacing.xxl)
             .padding(.bottom, Spacing.xl)

@@ -1,12 +1,11 @@
 import SwiftUI
 
-/// Bottom bar for the create-flow map: a "SPOTTED IN" region readout with an info
-/// button, over the primary CTA (review the selected spot, or continue with a new
-/// one). Presentational — the owner supplies the region/CTA text and handles taps.
+/// Bottom bar for the create-flow map: a "SPOTTED IN" region readout over the
+/// primary CTA (review the selected spot, or continue with a new one).
+/// Presentational — the owner supplies the region/CTA text and handles taps.
 struct ConfirmLocationFooter: View {
     let regionText: String
     let ctaTitle: String
-    var onInfo: () -> Void = {}
     var onContinue: () -> Void
 
     var body: some View {
@@ -22,13 +21,6 @@ struct ConfirmLocationFooter: View {
                 }
 
                 Spacer()
-
-                Button(action: onInfo) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.sTextTertiary)
-                }
-                .buttonStyle(.plain)
             }
 
             SPrimaryButton(title: ctaTitle, action: onContinue)

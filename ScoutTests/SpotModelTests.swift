@@ -269,6 +269,53 @@ struct SpotModelTests {
         #expect(review.tripodAllowed == nil)
         #expect(review.times.isEmpty)
         #expect(review.seasons.isEmpty)
+        // Author fields absent → nil, and the display name falls back.
+        #expect(review.authorName == nil)
+        #expect(review.authorPhotoUrl == nil)
+        #expect(review.authorDisplayName == "Unknown User")
+    }
+
+    @Test func decodesReviewAuthorIdentity() throws {
+        let json = """
+        {
+            "id": "r1", "spot_id": "s1", "user_id": "u1",
+            "public_lat": 1.0, "public_lng": 2.0, "city": "Seattle", "admin_area": "WA",
+            "photo_urls": [],
+            "overall_rating": 5,
+            "best_time_of_day": [],
+            "best_season": [],
+            "author_name": "Alice Chen",
+            "author_photo_url": "https://example.com/a.jpg",
+            "created_at": "2026-05-01T12:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let review = try JSONDecoder.scout.decode(Review.self, from: json)
+
+        #expect(review.authorName == "Alice Chen")
+        #expect(review.authorPhotoUrl?.absoluteString == "https://example.com/a.jpg")
+        #expect(review.authorDisplayName == "Alice Chen")
+    }
+
+    @Test func blankAuthorNameFallsBackToUnknownUser() throws {
+        let json = """
+        {
+            "id": "r1", "spot_id": "s1", "user_id": "u1",
+            "public_lat": 1.0, "public_lng": 2.0, "city": "Seattle", "admin_area": "WA",
+            "photo_urls": [],
+            "overall_rating": 5,
+            "best_time_of_day": [],
+            "best_season": [],
+            "author_name": "   ",
+            "author_photo_url": null,
+            "created_at": "2026-05-01T12:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let review = try JSONDecoder.scout.decode(Review.self, from: json)
+
+        #expect(review.authorPhotoUrl == nil)
+        #expect(review.authorDisplayName == "Unknown User")
     }
 
     @Test func decodesPaginatedReviewsEnvelope() throws {
@@ -352,7 +399,7 @@ struct SpotModelTests {
         let review = Review(
             id: "r", spotId: "s", spotName: nil,
             publicLat: 0, publicLng: 0, city: "Seattle", adminArea: "WA",
-            userId: "u", photoUrls: [],
+            userId: "u", authorName: nil, authorPhotoUrl: nil, photoUrls: [],
             overallRating: 5, notes: nil,
             bestTimeOfDay: ["Sunrise", "garbage", "BlueHour"],
             bestSeason: ["Spring", "garbage", "YearRound"],

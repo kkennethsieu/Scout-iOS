@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// Pushed from the Profile gear. A curated settings list (Account / Legal / account
-/// actions) over the Profile's existing nav stack. Most rows are stubbed for now;
-/// the real wiring is Log out and Delete account, which share `ProfileViewModel`'s
-/// account-deletion state with the Profile screen.
+/// Pushed from the Profile gear. A curated settings list (Legal links + account
+/// actions) over the Profile's existing nav stack. Log out and Delete account
+/// share `ProfileViewModel`'s account-deletion state with the Profile screen.
 struct SettingsScreen: View {
     @State private var viewModel: ProfileViewModel
     @Environment(AuthService.self) private var auth
@@ -27,7 +26,6 @@ struct SettingsScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xl) {
-                accountSection
                 legalSection
                 accountActions
                 versionFooter
@@ -94,15 +92,6 @@ struct SettingsScreen: View {
     }
 
     // MARK: - Sections
-
-    private var accountSection: some View {
-        SSection(title: "Account", titleFont: .sHeadingS) {
-            SListGroup {
-                SListRow(title: "Push notifications") {}
-                SListRow(title: "Email notifications") {}
-            }
-        }
-    }
 
     private var legalSection: some View {
         SSection(title: "Legal", titleFont: .sHeadingS) {

@@ -105,7 +105,7 @@ final class AuthService {
             withIDToken: idToken,
             accessToken: result.user.accessToken.tokenString
         )
-        
+
         try await Auth.auth().signIn(with: credential)
     }
     

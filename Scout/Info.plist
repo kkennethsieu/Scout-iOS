@@ -9,17 +9,12 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.991715986191-7fe0npl4ekultmqal0jbrlofpdl4b3la</string>
+				<string>com.googleusercontent.apps.991715986191-sgbltg1s3lupne598mctg60oh10l5et6</string>
 			</array>
 		</dict>
 		<dict/>
 	</array>
 	<key>GIDClientID</key>
-	<string>991715986191-7fe0npl4ekultmqal0jbrlofpdl4b3la.apps.googleusercontent.com</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
+	<string>991715986191-sgbltg1s3lupne598mctg60oh10l5et6.apps.googleusercontent.com</string>
 </dict>
 </plist>

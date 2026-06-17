@@ -4,8 +4,6 @@ import MapKit
 /// Create-flow map step: position the spot with a fixed centre pin (pan the map
 /// under it), see nearby existing spots, and either review one of those or
 /// continue with a new spot. Reuses the shared map components.
-///
-/// Not wired — the CTA branches are `// TODO` stubs.
 struct CreateMapScreen: View {
     let photoData: Data?
     /// The flow-owned accumulator. The map step writes its decision (final
@@ -120,7 +118,6 @@ struct CreateMapScreen: View {
             ConfirmLocationFooter(
                 regionText: viewModel.regionText,
                 ctaTitle: viewModel.ctaTitle,
-                onInfo: { /* TODO: explain how the location was determined */ },
                 onContinue: continueTapped
             )
         }

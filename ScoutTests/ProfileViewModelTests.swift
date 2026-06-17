@@ -58,7 +58,7 @@ struct ProfileViewModelTests {
     private func review(_ id: String) -> Review {
         Review(id: id, spotId: "s", spotName: "Spot",
                publicLat: 0, publicLng: 0, city: "Seattle", adminArea: "WA",
-               userId: "u", photoUrls: [],
+               userId: "u", authorName: nil, authorPhotoUrl: nil, photoUrls: [],
                overallRating: 4, notes: nil, bestTimeOfDay: [], bestSeason: [],
                accessLevel: nil, entranceFee: nil, crowdLevel: nil,
                gearRecommendations: nil, compositionHints: nil,

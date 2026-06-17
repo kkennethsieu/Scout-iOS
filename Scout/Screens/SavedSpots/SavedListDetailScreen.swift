@@ -1,9 +1,8 @@
 import SwiftUI
 
 /// A saved list's detail: back / sort / more chrome, the list name + description,
-/// a collaborators row, then a vertical feed of `SpotCard`s (reused from
-/// Explore). Sort, more, the add-collaborator button, and the floating Map
-/// button are decorative for now. Pushed onto the Saved tab's stack.
+/// then a vertical feed of `SpotCard`s (reused from Explore). Pushed onto the
+/// Saved tab's stack.
 struct SavedListDetailScreen: View {
     let list: SavedList
 
@@ -47,13 +46,10 @@ struct SavedListDetailScreen: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.top, Spacing.sm)
-            .padding(.bottom, 96) // room for the floating Map button
+            .padding(.bottom, Spacing.xl)
         }
         .background(Color.sBackground)
         .safeAreaInset(edge: .top, spacing: 0) { topBar }
-        .safeAreaInset(edge: .bottom) {
-            if !detailVM.spots.isEmpty { mapButton }
-        }
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(for: SpotSummary.self) { spot in
             SpotDetailScreen(spotID: spot.id)
@@ -174,27 +170,7 @@ struct SavedListDetailScreen: View {
                         .foregroundStyle(Color.sTextSecondary)
                 }
             }
-
-            collaborators
-        }
-    }
-
-    private var collaborators: some View {
-        HStack(spacing: Spacing.sm) {
-            SAvatar(size: 32)
-
-            Button {
-                // TODO: add collaborator
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.sTextSecondary)
-                    .frame(width: 32, height: 32)
-                    .overlay(Circle().stroke(Color.sBorderDefault, lineWidth: 1))
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Add to list")
+            // Collaborators hidden for v1 — no sharing/collaborator backend yet.
         }
     }
 
@@ -265,33 +241,6 @@ struct SavedListDetailScreen: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Map button
-
-    /// Decorative for now — there's no list map yet.
-    private var mapButton: some View {
-        Button {
-            // TODO: present list map
-        } label: {
-            HStack(spacing: Spacing.sm) {
-                Image(systemName: "map")
-                    .font(.system(size: 15, weight: .semibold))
-                Text("Map")
-                    .font(.sHeadingS)
-            }
-            .foregroundStyle(Color.sTextPrimary)
-            .padding(.horizontal, Spacing.xl)
-            .frame(height: 48)
-            .background(
-                Capsule().fill(Color.sSurface)
-            )
-            .overlay(
-                Capsule().stroke(Color.sBorderDefault, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
-        }
-        .buttonStyle(.plain)
-        .padding(.bottom, Spacing.sm)
-    }
 }
 
 // MARK: - Preview

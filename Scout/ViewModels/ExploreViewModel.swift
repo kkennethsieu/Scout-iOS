@@ -20,7 +20,6 @@ final class ExploreViewModel {
     private(set) var hasMore = false
     /// A `loadMore()` fetch is in flight (distinct from the initial `loading`).
     private(set) var isLoadingMore = false
-    var selectedFilter: String = ExploreViewModel.filters[0]
     var filters = SpotFilters()
     var sort: SpotSort = .scout
 
@@ -34,9 +33,6 @@ final class ExploreViewModel {
     var userCoordinate: CLLocationCoordinate2D?
     /// Re-center the feed on the user only once, when their first fix arrives.
     private var hasCenteredOnUser = false
-
-    /// Static category chips for now; will come from the backend later.
-    static let filters = ["All Spots", "Forest", "Coast", "Golden Hour"]
 
     /// Cursor for the *next* page; `nil` once the list is fully loaded.
     private var cursor: String?

@@ -50,8 +50,9 @@ struct SpotDetailScreen: View {
                 SpotDetailHero(
                     photos: detail.heroPhotos,
                     isSaved: savedStore?.isSaved(detail.id) ?? false,
+                    shareURL: Self.mapsURL(for: detail),
+                    spotName: detail.name,
                     onBack: { dismiss() },
-                    onShare: { /* TODO: share sheet */ },
                     onTapSave: { showSaveSheet = true }
                 )
 
@@ -75,8 +76,7 @@ struct SpotDetailScreen: View {
 
                     SpotReviewsSection(
                         reviews: viewModel.reviews,
-                        countText: viewModel.reviewCountText,
-                        onViewAll: { /* TODO: navigate to all reviews */ }
+                        countText: viewModel.reviewCountText
                     )
                 }
                 .padding(.horizontal, Spacing.lg)
@@ -85,6 +85,16 @@ struct SpotDetailScreen: View {
             .padding(.bottom, 96)   // room for the sticky Leave-a-review bar
         }
         .ignoresSafeArea(edges: .top)
+    }
+
+    /// An Apple Maps link to the spot's public location, used by the Share button.
+    private static func mapsURL(for detail: SpotDetail) -> URL {
+        var components = URLComponents(string: "https://maps.apple.com/")!
+        components.queryItems = [
+            URLQueryItem(name: "ll", value: "\(detail.publicLat),\(detail.publicLng)"),
+            URLQueryItem(name: "q", value: detail.name)
+        ]
+        return components.url ?? URL(string: "https://maps.apple.com/")!
     }
 }
 

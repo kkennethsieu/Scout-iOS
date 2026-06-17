@@ -5,8 +5,11 @@ import SwiftUI
 struct SpotDetailHero: View {
     let photos: [URL]
     var isSaved: Bool
+    /// What the share button sends — a link to the spot (e.g. its public Maps
+    /// location). The spot name is the share subject/message.
+    var shareURL: URL
+    var spotName: String
     var onBack: () -> Void
-    var onShare: () -> Void
     var onTapSave: () -> Void = {}
 
     @State private var page = 0
@@ -19,7 +22,12 @@ struct SpotDetailHero: View {
                 circleIcon("chevron.left", action: onBack)
                 Spacer()
                 HStack(spacing: Spacing.md) {
-                    circleIcon("square.and.arrow.up", action: onShare)
+                    ShareLink(item: shareURL,
+                              subject: Text(spotName),
+                              message: Text("Check out \(spotName) on Scout")) {
+                        iconLabel("square.and.arrow.up")
+                    }
+                    .buttonStyle(.plain)
                     circleIcon(isSaved ? "bookmark.fill" : "bookmark", action: onTapSave)
                 }
             }
@@ -59,12 +67,17 @@ struct SpotDetailHero: View {
 
     private func circleIcon(_ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.sTextPrimary)
-                .frame(width: 40, height: 40)
-                .background(Color.sSurface.opacity(0.92), in: Circle())
+            iconLabel(symbol)
         }
         .buttonStyle(.plain)
+    }
+
+    /// The floating-circle icon styling, shared by the buttons and the ShareLink.
+    private func iconLabel(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(Color.sTextPrimary)
+            .frame(width: 40, height: 40)
+            .background(Color.sSurface.opacity(0.92), in: Circle())
     }
 }

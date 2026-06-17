@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The Profile root: a custom top bar (settings + more), the user header, a
-/// Photos/Reviews segmented control, and the selected tab's content. No data
-/// wiring yet — the view model serves sample content.
+/// The Profile root: a custom top bar (settings + more), the user header, and
+/// the user's reviews. (The Photos tab is hidden for v1 until it's
+/// service-backed.)
 struct ProfileScreen: View {
     @State private var viewModel: ProfileViewModel
     @Environment(AuthService.self) private var auth
@@ -28,16 +28,11 @@ struct ProfileScreen: View {
                         .padding(.horizontal, Spacing.lg)
                         .padding(.top, Spacing.sm)
 
-                    SSegmentedControl(
-                        options: ProfileViewModel.Tab.allCases,
-                        selection: $viewModel.selectedTab,
-                        label: \.title
-                    )
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.lg)
-
-                    tabContent
+                    // Photos tab hidden for v1 (no service-backed photos yet) —
+                    // the profile shows the user's reviews directly.
+                    ProfileReviewsList(viewModel: viewModel)
                         .padding(Spacing.lg)
+                        .padding(.top, Spacing.sm)
                 }
             }
             .background(Color.sBackground)
@@ -96,17 +91,6 @@ struct ProfileScreen: View {
             .contentShape(Rectangle())
     }
 
-    // MARK: - Tab content
-
-    @ViewBuilder
-    private var tabContent: some View {
-        switch viewModel.selectedTab {
-        case .photos:
-            ProfilePhotoGrid(photoURLs: viewModel.photoURLs)
-        case .reviews:
-            ProfileReviewsList(viewModel: viewModel)
-        }
-    }
 }
 
 // MARK: - Routes
