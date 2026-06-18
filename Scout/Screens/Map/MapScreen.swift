@@ -47,6 +47,7 @@ struct MapScreen: View {
             .onChange(of: location.coordinate?.latitude) { _, _ in
                 Task { await viewModel.applyUserLocation(location.coordinate) }
             }
+            .enableSwipeBack()
         }
     }
 

@@ -308,6 +308,7 @@ private struct CreateFlowContainer: View {
                     WriteReviewScreen(viewModel: review)
                 }
             }
+            .enableSwipeBack()
         }
         .onChange(of: review.phase) { _, phase in
             if phase == .success { onSucceeded() }

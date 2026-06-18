@@ -4,7 +4,7 @@
 
 Scout is a photographer-focused spot-discovery app — find, view, review, and save great photo locations. Browse a searchable feed of spots with real photos from other photographers, see them on a map, and check the details that actually matter before you go: best light, gear, access, crowds, and seasons.
 
-Built with SwiftUI for iOS, iPadOS, macOS, and visionOS.
+Built with SwiftUI for iPhone (iOS 26.1+).
 
 ---
 
@@ -78,7 +78,7 @@ All styling flows through `s`-prefixed tokens — colors (`Color.sAccent`, `Colo
 
 ## Tech stack
 
-- **SwiftUI** (multi-platform: iOS / iPadOS / macOS / visionOS), deployment target **26.1**
+- **SwiftUI** for iPhone (iOS), deployment target **26.1**
 - **Swift concurrency** — `async/await`, `@MainActor` default isolation
 - **Firebase Auth** + **GoogleSignIn** (via Swift Package Manager)
 - **MapKit**, **CoreLocation**, **PhotosUI / ImageIO** (EXIF read from picked photos)

@@ -20,6 +20,9 @@ struct SavedListDetailScreen: View {
     @State private var showEdit = false
     @State private var showDeleteConfirm = false
     @State private var actionError: String?
+    /// Measured height of the floating top bar, used to inset the scroll content
+    /// so the header clears the overlay (replaces the old `safeAreaInset`).
+    @State private var topBarHeight: CGFloat = 0
 
     init(list: SavedList, service: SavedListService = AppServices.savedLists) {
         self.list = list
@@ -34,26 +37,37 @@ struct SavedListDetailScreen: View {
 
     private var sortedSpots: [SpotSummary] { sort.sorted(detailVM.spots) }
 
-    private var errorAlertBinding: Binding<Bool> {
-        Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })
-    }
-
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Spacing.xl) {
-                header
-                feed
+        ZStack(alignment: .top) {
+            Color.sBackground.ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.xl) {
+                    header
+                    feed
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, topBarHeight + Spacing.sm)
+                .padding(.bottom, Spacing.xl)
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.sm)
-            .padding(.bottom, Spacing.xl)
         }
-        .background(Color.sBackground)
-        .safeAreaInset(edge: .top, spacing: 0) { topBar }
-        .toolbar(.hidden, for: .navigationBar)
-        .navigationDestination(for: SpotSummary.self) { spot in
-            SpotDetailScreen(spotID: spot.id)
+        .overlay(alignment: .top) {
+            SavedListControls(
+                showsMenu: !currentList.isSystem,
+                onBack: { dismiss() },
+                onSort: { showSort = true },
+                onEdit: { showEdit = true },
+                onDelete: { showDeleteConfirm = true }
+            )
+            .padding(.top, Spacing.xs)
+            // Measure the floating controls so the header clears them at rest.
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height
+            } action: { height in
+                topBarHeight = height
+            }
         }
+        .toolbarVisibility(.hidden, for: .navigationBar)
         .sheet(isPresented: $showSort) {
             SSortSheet(
                 options: SavedSpotSort.allCases,
@@ -65,95 +79,40 @@ struct SavedListDetailScreen: View {
         .sheet(item: $saveTarget) { spot in
             SaveToListSheet(spotID: spot.id)
         }
-        .sheet(isPresented: $showEdit) {
-            CreateListSheet(
-                mode: .edit,
-                name: currentList.name,
-                description: currentList.description ?? ""
-            ) { name, description in
-                Task {
-                    do { try await store.updateList(id: list.id, name: name, description: description) }
-                    catch { actionError = error.localizedDescription }
-                }
-            }
-        }
-        .confirmationDialog(
-            "Delete this list?",
-            isPresented: $showDeleteConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Delete list", role: .destructive) {
-                Task {
-                    do {
-                        try await store.deleteList(id: list.id)
-                        dismiss()
-                    } catch {
-                        actionError = error.localizedDescription
-                    }
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This can't be undone.")
-        }
-        .alert("Something went wrong", isPresented: errorAlertBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(actionError ?? "")
-        }
-        .onAppear { tabBarVisibility?.isHidden = true }
-        .onDisappear { tabBarVisibility?.isHidden = false }
+        .savedListManagement(
+            listName: currentList.name,
+            listDescription: currentList.description ?? "",
+            showEdit: $showEdit,
+            showDeleteConfirm: $showDeleteConfirm,
+            error: $actionError,
+            onSubmitEdit: submitEdit,
+            onConfirmDelete: confirmDelete
+        )
+        .onAppear { tabBarVisibility?.requestHidden() }
+        .onDisappear { tabBarVisibility?.releaseHidden() }
         .task {
             if detailVM.state == .idle { await detailVM.load() }
         }
     }
 
-    // MARK: - Top bar
+    // MARK: - List management
 
-    private var topBar: some View {
-        HStack(spacing: Spacing.sm) {
-            iconButton("chevron.left") { dismiss() }
-                .accessibilityLabel("Back")
+    private func submitEdit(name: String, description: String) {
+        Task {
+            do { try await store.updateList(id: list.id, name: name, description: description) }
+            catch { actionError = error.localizedDescription }
+        }
+    }
 
-            Spacer()
-
-            iconButton("arrow.up.arrow.down") { showSort = true }
-                .accessibilityLabel("Sort")
-
-            // The app-managed Favorites list can't be edited or deleted, so it
-            // has no overflow menu.
-            if !currentList.isSystem {
-                Menu {
-                    Button { showEdit = true } label: {
-                        Label("Edit list", systemImage: "pencil")
-                    }
-                    Button(role: .destructive) { showDeleteConfirm = true } label: {
-                        Label("Delete list", systemImage: "trash")
-                    }
-                } label: {
-                    iconLabel("ellipsis")
-                }
-                .accessibilityLabel("More")
+    private func confirmDelete() {
+        Task {
+            do {
+                try await store.deleteList(id: list.id)
+                dismiss()
+            } catch {
+                actionError = error.localizedDescription
             }
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.sm)
-        .background(Color.sBackground)
-    }
-
-    private func iconButton(_ name: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            iconLabel(name)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func iconLabel(_ name: String) -> some View {
-        Image(systemName: name)
-            .font(.system(size: 17, weight: .semibold))
-            .foregroundStyle(Color.sTextPrimary)
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
     }
 
     // MARK: - Header

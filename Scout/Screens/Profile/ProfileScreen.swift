@@ -52,6 +52,7 @@ struct ProfileScreen: View {
                     }
                 }
             }
+            .enableSwipeBack()
         }
         .task(id: isActive) {
             // Refetch whenever the Profile tab becomes the active one.

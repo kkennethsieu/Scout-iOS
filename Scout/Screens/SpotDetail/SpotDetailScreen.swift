@@ -29,14 +29,33 @@ struct SpotDetailScreen: View {
                 }
             }
         }
-        .toolbar(.hidden, for: .navigationBar)
+        .overlay(alignment: .top) {
+            SpotDetailControls(
+                isSaved: savedStore?.isSaved(viewModel.detail?.id ?? "") ?? false,
+                shareURL: viewModel.detail.map { Self.mapsURL(for: $0) },
+                spotName: viewModel.detail?.name ?? "",
+                onBack: { dismiss() },
+                onTapSave: { showSaveSheet = true }
+            )
+            .padding(.top, Spacing.xs)
+        }
+        .overlay(alignment: .bottom) {
+            if let detail = viewModel.detail {
+                SpotDirectionsBar(
+                    latitude: detail.publicLat,
+                    longitude: detail.publicLng,
+                    name: detail.name
+                )
+            }
+        }
+        .toolbarVisibility(.hidden, for: .navigationBar)
         .sheet(isPresented: $showSaveSheet) {
             if let detail = viewModel.detail {
                 SaveToListSheet(spotID: detail.id)
             }
         }
-        .onAppear { tabBarVisibility?.isHidden = true }
-        .onDisappear { tabBarVisibility?.isHidden = false }
+        .onAppear { tabBarVisibility?.requestHidden() }
+        .onDisappear { tabBarVisibility?.releaseHidden() }
         .task {
             if viewModel.state == .idle { await viewModel.load() }
         }
@@ -47,19 +66,14 @@ struct SpotDetailScreen: View {
     private func content(_ detail: SpotDetail) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.xl) {
-                SpotDetailHero(
-                    photos: detail.heroPhotos,
-                    isSaved: savedStore?.isSaved(detail.id) ?? false,
-                    shareURL: Self.mapsURL(for: detail),
-                    spotName: detail.name,
-                    onBack: { dismiss() },
-                    onTapSave: { showSaveSheet = true }
-                )
+                SpotDetailHero(photos: detail.heroPhotos)
 
                 VStack(alignment: .leading, spacing: Spacing.xl) {
                     SpotTitleBlock(name: detail.name, subtitle: detail.subtitle, rating: detail.avgRating, reviewCount: detail.reviewCount)
 
                     SpotQuickFacts(detail: detail)
+                    
+                    SpotLookAround(latitude: detail.publicLat, longitude: detail.publicLng)
 
                     SpotShootingTimes(times: detail.shootingTimes)
 

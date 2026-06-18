@@ -28,10 +28,26 @@ enum MainTab: Hashable, CaseIterable {
 /// Shared switch that pushed screens (e.g. Spot Detail) flip to hide the tab bar
 /// while they're on top — replacing the native `.toolbar(.hidden, for: .tabBar)`
 /// behaviour we lose by not using `UITabBar`.
+///
+/// Backed by a *count* of hide requests rather than a single `Bool`: when one
+/// hiding screen pushes another (e.g. a saved-list detail → spot detail), the
+/// outgoing screen's `onDisappear` can fire after the incoming screen's
+/// `onAppear`. A Bool would flip back to shown and leak the bar onto the child;
+/// the counter stays positive as long as *any* hiding screen is on top.
 @MainActor
 @Observable
 final class TabBarVisibility {
-    var isHidden = false
+    private(set) var hideRequestCount = 0
+
+    /// True while at least one pushed screen wants the tab bar hidden.
+    var isHidden: Bool { hideRequestCount > 0 }
+
+    /// Call from a screen's `onAppear` to hide the tab bar while it's on top.
+    func requestHidden() { hideRequestCount += 1 }
+
+    /// Call from the matching `onDisappear`. Clamped so unbalanced calls can't
+    /// drive the count negative and wedge the bar hidden.
+    func releaseHidden() { hideRequestCount = max(0, hideRequestCount - 1) }
 }
 
 /// Owns the selected tab so any screen can switch tabs programmatically (e.g. an

@@ -80,7 +80,7 @@ struct PhotoCarousel: View {
     private func asyncPhoto(_ url: URL) -> some View {
         Color.sBorderSubtle
             .overlay {
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image): image.resizable().scaledToFill()
                     case .failure: placeholder

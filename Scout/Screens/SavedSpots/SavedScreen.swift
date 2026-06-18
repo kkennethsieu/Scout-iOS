@@ -75,6 +75,7 @@ struct SavedScreen: View {
                     await store.refresh()
                 }
             }
+            .enableSwipeBack()
         }
     }
 

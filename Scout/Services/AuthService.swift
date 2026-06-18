@@ -25,6 +25,10 @@ final class AuthService {
     // MARK: - Lifecycle
     
     private init() {
+        if !UserDefaults.standard.bool(forKey: "hasLaunchedBefore") {
+            try? Auth.auth().signOut()
+            UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
+        }
         setupAuthStateListener()
     }
     
