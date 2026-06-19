@@ -46,13 +46,16 @@ nonisolated struct LiveSpotService: SpotService {
         try await client.get("spots/\(id)")
     }
 
-    func fetchReviews(spotID: String) async throws -> [Review] {
-        // Returns the first page; cursor pagination can be layered on once the
-        // full reviews screen exists.
-        let page: PaginatedReviews = try await client.get("spots/\(spotID)/reviews", query: [
-            "limit": "\(limit)"
-        ])
-        return page.items
+    func fetchReviews(spotID: String, limit: Int, cursor: String?, sort: String) async throws -> PaginatedReviews {
+        var query = ["limit": "\(limit)", "sort": sort]
+        if let cursor { query["cursor"] = cursor }
+        return try await client.get("spots/\(spotID)/reviews", query: query)
+    }
+
+    func searchReviews(spotID: String, query: String, limit: Int, cursor: String?, sort: String) async throws -> PaginatedReviews {
+        var params = ["q": query, "limit": "\(limit)", "sort": sort]
+        if let cursor { params["cursor"] = cursor }
+        return try await client.get("spots/\(spotID)/reviews/search", query: params)
     }
 
     func submitReview(spotID: String, payload: NewReviewPayload) async throws -> Review {

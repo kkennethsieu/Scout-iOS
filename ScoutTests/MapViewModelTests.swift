@@ -18,7 +18,12 @@ private final class RecordingSpotService: SpotService, @unchecked Sendable {
     }
     func searchSpots(query: String, limit: Int) async throws -> [SpotSummary] { [] }
     func fetchSpotDetail(id: String) async throws -> SpotDetail { .sample }
-    func fetchReviews(spotID: String) async throws -> [Review] { [] }
+    func fetchReviews(spotID: String, limit: Int, cursor: String?, sort: String) async throws -> PaginatedReviews {
+        PaginatedReviews(items: [], limit: limit, nextCursor: nil)
+    }
+    func searchReviews(spotID: String, query: String, limit: Int, cursor: String?, sort: String) async throws -> PaginatedReviews {
+        PaginatedReviews(items: [], limit: limit, nextCursor: nil)
+    }
     func submitReview(spotID: String, payload: NewReviewPayload) async throws -> Review { Review.samples[0] }
     func submitNewSpot(payload: NewReviewPayload) async throws -> CreatedSpotReview {
         CreatedSpotReview(spot: .sample, review: Review.samples[0])

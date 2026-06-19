@@ -1,11 +1,10 @@
 import SwiftUI
 
 /// A single review on the Spot Detail page: author header, notes, photo grid,
-/// and a like/comment footer.
+/// and a like footer.
 struct ReviewCard: View {
     let review: Review
     var likeCount: Int = 24
-    var commentCount: Int = 3
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
@@ -100,7 +99,6 @@ struct ReviewCard: View {
     private var footer: some View {
         HStack(spacing: Spacing.xl) {
             Label("\(likeCount)", systemImage: "hand.thumbsup")
-            Label("\(commentCount)", systemImage: "bubble.left")
         }
         .font(.sBody)
         .foregroundStyle(Color.sTextSecondary)

@@ -11,7 +11,12 @@ nonisolated protocol SpotService {
     /// search bar's Spots section. Not geo-scoped.
     func searchSpots(query: String, limit: Int) async throws -> [SpotSummary]
     func fetchSpotDetail(id: String) async throws -> SpotDetail
-    func fetchReviews(spotID: String) async throws -> [Review]
+    /// Fetches a cursor-paginated page of a spot's reviews in `sort` order. Pass a
+    /// prior page's `nextCursor` to page on.
+    func fetchReviews(spotID: String, limit: Int, cursor: String?, sort: String) async throws -> PaginatedReviews
+    /// Searches a spot's reviews by text (notes / gear / composition) in `sort`
+    /// order. Cursor-paginated like `fetchReviews`.
+    func searchReviews(spotID: String, query: String, limit: Int, cursor: String?, sort: String) async throws -> PaginatedReviews
     /// Submits a review for an existing spot (multipart). Returns the created review.
     func submitReview(spotID: String, payload: NewReviewPayload) async throws -> Review
     /// Creates a new spot + its first review in one request (multipart). The
@@ -57,9 +62,39 @@ nonisolated struct MockSpotService: SpotService {
         return SpotDetail.sample
     }
 
-    func fetchReviews(spotID: String) async throws -> [Review] {
+    /// Two deterministic pages so "load more" is exercisable offline: page one
+    /// (cursor `nil`) hands back a `"p2"` cursor; page two (`"p2"`) ends the list.
+    func fetchReviews(spotID: String, limit: Int, cursor: String?, sort: String) async throws -> PaginatedReviews {
         try await Task.sleep(for: delay)
-        return Review.samples
+        let sorted = Self.sortReviews(Review.samples, by: sort)
+        switch cursor {
+        case nil:
+            return PaginatedReviews(items: sorted, limit: limit, nextCursor: "p2")
+        default:
+            return PaginatedReviews(items: sorted, limit: limit, nextCursor: nil)
+        }
+    }
+
+    func searchReviews(spotID: String, query: String, limit: Int, cursor: String?, sort: String) async throws -> PaginatedReviews {
+        try await Task.sleep(for: delay)
+        let matches = Review.samples.filter { review in
+            [review.notes, review.gearRecommendations, review.compositionHints]
+                .compactMap { $0 }
+                .contains { $0.localizedCaseInsensitiveContains(query) }
+        }
+        let sorted = Self.sortReviews(matches, by: sort)
+        return PaginatedReviews(items: Array(sorted.prefix(limit)), limit: limit, nextCursor: nil)
+    }
+
+    /// Orders sample reviews to match the backend `sort` values, so previews look
+    /// right. `scout` keeps the natural (sample) order.
+    private static func sortReviews(_ reviews: [Review], by sort: String) -> [Review] {
+        switch sort {
+        case "newest":        return reviews.sorted { $0.createdAt > $1.createdAt }
+        case "highest_rated": return reviews.sorted { $0.overallRating > $1.overallRating }
+        case "lowest_rated":  return reviews.sorted { $0.overallRating < $1.overallRating }
+        default:              return reviews
+        }
     }
 
     func submitReview(spotID: String, payload: NewReviewPayload) async throws -> Review {

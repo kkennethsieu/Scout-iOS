@@ -88,10 +88,7 @@ struct SpotDetailScreen: View {
                         tripodAllowed: detail.modeTripodAllowed
                     )
 
-                    SpotReviewsSection(
-                        reviews: viewModel.reviews,
-                        countText: viewModel.reviewCountText
-                    )
+                    SpotReviewsSection(spotName: detail.name, viewModel: viewModel)
                 }
                 .padding(.horizontal, Spacing.lg)
             }
