@@ -4,14 +4,12 @@ import SwiftUI
 /// and a like footer.
 struct ReviewCard: View {
     let review: Review
-    var likeCount: Int = 24
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             header
             notes
             if !review.photoUrls.isEmpty { photoGrid }
-            footer
         }
         .padding(Spacing.lg)
         .background(
@@ -92,16 +90,6 @@ struct ReviewCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: Radius.md))
             }
         }
-    }
-
-    // MARK: - Footer
-
-    private var footer: some View {
-        HStack(spacing: Spacing.xl) {
-            Label("\(likeCount)", systemImage: "hand.thumbsup")
-        }
-        .font(.sBody)
-        .foregroundStyle(Color.sTextSecondary)
     }
 }
 

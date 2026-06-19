@@ -75,7 +75,7 @@ final class CreateReviewViewModel {
 
     nonisolated static let timeOptions: [TimeOfDay] = [.goldenHour, .blueHour, .sunrise, .night, .midday]
     nonisolated static let seasonOptions: [Season] = [.spring, .summer, .fall, .winter, .yearRound]
-    nonisolated static let accessOptions = ["Easy", "Moderate", "Hard"]
+    nonisolated static let accessOptions = ["Easy", "Moderate", "Difficult"]
 
     // MARK: - Init
 

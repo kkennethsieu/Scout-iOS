@@ -2,7 +2,7 @@ import Testing
 import CoreLocation
 @testable import Scout
 
-/// Covers `CreateSpotFlow.photoRoute` — the pure decision that sends a picked
+/// Covers `CreateFlowHost.photoRoute` — the pure decision that sends a picked
 /// photo to the map, prompts for location first, or shows the location-error
 /// sheet, based on the photo's EXIF coordinate and the current authorization.
 struct CreatePhotoRouteTests {
@@ -13,14 +13,14 @@ struct CreatePhotoRouteTests {
 
     @Test func validGPSGoesToMapEvenWhenDenied() {
         #expect(
-            CreateSpotFlow.photoRoute(coordinate: realFix, authorization: .denied)
+            CreateFlowHost.photoRoute(coordinate: realFix, authorization: .denied)
                 == .map(realFix)
         )
     }
 
     @Test func validGPSGoesToMapWhenNotDetermined() {
         #expect(
-            CreateSpotFlow.photoRoute(coordinate: realFix, authorization: .notDetermined)
+            CreateFlowHost.photoRoute(coordinate: realFix, authorization: .notDetermined)
                 == .map(realFix)
         )
     }
@@ -29,7 +29,7 @@ struct CreatePhotoRouteTests {
 
     @Test func noGPSWhenAuthorizedFallsBackToDeviceLocation() {
         #expect(
-            CreateSpotFlow.photoRoute(coordinate: nil, authorization: .authorizedWhenInUse)
+            CreateFlowHost.photoRoute(coordinate: nil, authorization: .authorizedWhenInUse)
                 == .map(nil)
         )
     }
@@ -38,28 +38,28 @@ struct CreatePhotoRouteTests {
         // (0,0) is rejected by `sanitized`, so it behaves like missing GPS.
         let nullIsland = CLLocationCoordinate2D(latitude: 0, longitude: 0)
         #expect(
-            CreateSpotFlow.photoRoute(coordinate: nullIsland, authorization: .authorizedWhenInUse)
+            CreateFlowHost.photoRoute(coordinate: nullIsland, authorization: .authorizedWhenInUse)
                 == .map(nil)
         )
     }
 
     @Test func noGPSWhenNotDeterminedRequestsThenMaps() {
         #expect(
-            CreateSpotFlow.photoRoute(coordinate: nil, authorization: .notDetermined)
+            CreateFlowHost.photoRoute(coordinate: nil, authorization: .notDetermined)
                 == .requestLocationThenMap
         )
     }
 
     @Test func noGPSWhenDeniedShowsError() {
         #expect(
-            CreateSpotFlow.photoRoute(coordinate: nil, authorization: .denied)
+            CreateFlowHost.photoRoute(coordinate: nil, authorization: .denied)
                 == .locationError
         )
     }
 
     @Test func noGPSWhenRestrictedShowsError() {
         #expect(
-            CreateSpotFlow.photoRoute(coordinate: nil, authorization: .restricted)
+            CreateFlowHost.photoRoute(coordinate: nil, authorization: .restricted)
                 == .locationError
         )
     }

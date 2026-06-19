@@ -3,7 +3,6 @@ import CoreLocation
 
 struct MainTabView: View {
     @State private var router = TabRouter()
-    @State private var showCreateSheet = false
     @State private var tabBarVisibility = TabBarVisibility()
     @State private var savedStore = SavedStore()
 
@@ -18,10 +17,8 @@ struct MainTabView: View {
         content
             .safeAreaInset(edge: .bottom, spacing: 10) {
                 if !tabBarVisibility.isHidden {
-                    STabBar(selection: $router.selection) {
-                        showCreateSheet = true
-                    }
-                    .transition(.move(edge: .bottom))
+                    STabBar(selection: $router.selection)
+                        .transition(.move(edge: .bottom))
                 }
             }
             .animation(.easeInOut(duration: 0.1), value: tabBarVisibility.isHidden)
@@ -29,7 +26,6 @@ struct MainTabView: View {
             .environment(router)
             .environment(savedStore)
             .task { await savedStore.load() }
-            .modifier(CreateSpotFlow(isPresented: $showCreateSheet))
             .sheet(isPresented: $showLocationPrimer, onDismiss: { hasRequestedLocation = true }) {
                 LocationPrimerSheet(
                     onEnable: {
@@ -54,6 +50,7 @@ struct MainTabView: View {
         ZStack {
             tabContent(.explore) { ExploreScreen() }
             tabContent(.map) { MapScreen() }
+            tabContent(.create) { CreateFlowHost(isActive: selection == .create) }
             tabContent(.saved) { SavedScreen(isActive: selection == .saved) }
             tabContent(.profile) { ProfileScreen(isActive: selection == .profile) }
         }

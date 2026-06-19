@@ -11,7 +11,11 @@ struct AccessLogisticsCard: View {
     @Binding var entranceFee: String
     @Binding var crowdLevel: String?
 
-    var crowdOptions: [String] = ["Low", "Moderate", "High"]
+    /// Crowd-level vocabulary — must match the backend `CrowdLevel` Literal, since
+    /// the selected value is sent verbatim as `crowd_level`.
+    nonisolated static let defaultCrowdOptions = ["Empty", "Light", "Moderate", "Crowded"]
+
+    var crowdOptions: [String] = defaultCrowdOptions
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {

@@ -177,6 +177,19 @@ struct CreateReviewViewModelTests {
         #expect(payload.photos.count == 1)
     }
 
+    /// The create form's `access_level` / `crowd_level` options are sent verbatim
+    /// as multipart values and must match the backend's `Literal` vocabularies, or
+    /// `POST /spots/with-review` 422s. (Time/season raw values are covered by their
+    /// model enums.) See `Scout-backend/app/schemas/enums.py`.
+    @Test func optionVocabulariesMatchBackendLiterals() {
+        #expect(CreateReviewViewModel.accessOptions == ["Easy", "Moderate", "Difficult"])
+        #expect(AccessLogisticsCard.defaultCrowdOptions == ["Empty", "Light", "Moderate", "Crowded"])
+        #expect(Set(TimeOfDay.allCases.map(\.rawValue))
+                == ["Sunrise", "GoldenHour", "BlueHour", "Midday", "Night"])
+        #expect(Set(Season.allCases.map(\.rawValue))
+                == ["Spring", "Summer", "Fall", "Winter", "YearRound"])
+    }
+
     @Test func payloadParsesEntranceFee() {
         let vm = makeVM(photoData: Data([0x9]))
         vm.draft.rating = 5

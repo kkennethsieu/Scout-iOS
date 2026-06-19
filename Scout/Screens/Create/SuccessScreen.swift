@@ -37,6 +37,7 @@ struct SuccessScreen: View {
         }
         .background(Color.sBackground)
         .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     // MARK: - Header

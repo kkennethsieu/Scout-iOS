@@ -1,15 +1,17 @@
 import SwiftUI
 import Observation
 
-/// The four navigable destinations. The center "Post" action is intentionally
-/// *not* a case here — it's a button, not a destination.
+/// The five navigable destinations. The center `.create` tab is a real, selectable
+/// destination (it opens the full-page `ShareLocationScreen`), just rendered with a
+/// prominent treatment in the bar.
 enum MainTab: Hashable, CaseIterable {
-    case explore, map, saved, profile
+    case explore, map, create, saved, profile
 
     var title: String {
         switch self {
         case .explore: "Explore"
         case .map:     "Map"
+        case .create: "Create"
         case .saved:   "Saved"
         case .profile: "Profile"
         }
@@ -19,6 +21,7 @@ enum MainTab: Hashable, CaseIterable {
         switch self {
         case .explore: "square.grid.2x2"
         case .map:     "map"
+        case .create: "plus"
         case .saved:   "bookmark"
         case .profile: "person"
         }
@@ -60,18 +63,17 @@ final class TabRouter {
 }
 
 /// Custom bottom tab bar. Replaces SwiftUI's `TabView` bar (and its backing
-/// `UITabBarController`) so the center "+" can present a sheet without the tab
-/// bar ever committing a selection change — which is what caused the one-frame
-/// blink with the native bar.
+/// `UITabBarController`) so all tabs stay instantiated and keep their state when
+/// switching (the opacity-based persistence in `MainTabView`). The center
+/// `.create` tab is selectable like the rest, just rendered prominently.
 struct STabBar: View {
     @Binding var selection: MainTab
-    var onPost: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             barItem(.explore)
             barItem(.map)
-            postItem
+            barItem(.create)
             barItem(.saved)
             barItem(.profile)
         }
@@ -90,21 +92,39 @@ struct STabBar: View {
 
     // MARK: - Items
 
+    @ViewBuilder
     private func barItem(_ tab: MainTab) -> some View {
         Button {
             selection = tab
         } label: {
-            label(icon: tab.icon, title: tab.title, isActive: selection == tab)
+            if tab == .create {
+                createLabel(isActive: selection == tab)
+            } else {
+                label(icon: tab.icon, title: tab.title, isActive: selection == tab)
+            }
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: selection == tab)
     }
 
-    private var postItem: some View {
-        Button(action: onPost) {
-            label(icon: "plus.circle.fill", title: "Post", isActive: false)
+    /// The prominent center Create item: a filled accent symbol that pops out from
+    /// the plain tab items, while still selecting the tab like any other.
+    private func createLabel(isActive: Bool) -> some View {
+        VStack(spacing: Spacing.xs) {
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 28, weight: .regular))
+                .frame(height: 26)
+                .foregroundStyle(Color.sAccent)
+            Text(MainTab.create.title)
+                .font(.sCaption)
+                .foregroundStyle(isActive ? Color.sAccent : Color.sTextTertiary)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, Spacing.xs)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(MainTab.create.title)
+        .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 
     private func label(icon: String, title: String, isActive: Bool) -> some View {
@@ -133,7 +153,7 @@ struct STabBar: View {
         var body: some View {
             VStack {
                 Spacer()
-                STabBar(selection: $selection) {}
+                STabBar(selection: $selection)
             }
             .background(Color.sBackground)
         }
