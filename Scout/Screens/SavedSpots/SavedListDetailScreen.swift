@@ -17,6 +17,7 @@ struct SavedListDetailScreen: View {
     @State private var saveTarget: SpotSummary?
     @State private var sort: SavedSpotSort = .recentlyAdded
     @State private var showSort = false
+    @State private var showMap = false
     @State private var showEdit = false
     @State private var showDeleteConfirm = false
     @State private var actionError: String?
@@ -37,6 +38,11 @@ struct SavedListDetailScreen: View {
 
     private var sortedSpots: [SpotSummary] { sort.sorted(detailVM.spots) }
 
+    /// The list is loaded and actually has spots — gates the floating Map button.
+    private var hasSpots: Bool {
+        detailVM.state == .loaded && !detailVM.spots.isEmpty
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             Color.sBackground.ignoresSafeArea()
@@ -48,7 +54,14 @@ struct SavedListDetailScreen: View {
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, topBarHeight + Spacing.sm)
-                .padding(.bottom, Spacing.xl)
+                // Extra bottom room so the last card clears the floating Map button.
+                .padding(.bottom, hasSpots ? Spacing.xxxl + Spacing.lg : Spacing.xl)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if hasSpots {
+                SMapButton { showMap = true }
+                    .padding(.bottom, Spacing.lg)
             }
         }
         .overlay(alignment: .top) {
@@ -68,6 +81,9 @@ struct SavedListDetailScreen: View {
             }
         }
         .toolbarVisibility(.hidden, for: .navigationBar)
+        .navigationDestination(isPresented: $showMap) {
+            ListMapScreen(title: currentList.name, spots: detailVM.spots)
+        }
         .sheet(isPresented: $showSort) {
             SSortSheet(
                 options: SavedSpotSort.allCases,

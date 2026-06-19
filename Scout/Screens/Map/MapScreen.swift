@@ -62,14 +62,7 @@ struct MapScreen: View {
                 .annotationTitles(.hidden)
             }
 
-            ForEach(viewModel.spots) { spot in
-                Annotation(spot.name, coordinate: spot.coordinate) {
-                    NearbySpotMarker(name: spot.name,
-                                     isSelected: viewModel.selectedSpotID == spot.id)
-                }
-                .tag(spot.id)
-                .annotationTitles(.hidden)
-            }
+            SpotPins(spots: viewModel.spots, selectedID: viewModel.selectedSpotID)
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
         .ignoresSafeArea(edges: .top)
@@ -97,22 +90,12 @@ struct MapScreen: View {
         }
     }
 
-    @ViewBuilder
     private var preview: some View {
-        VStack {
-            Spacer()
-            if let spot = viewModel.selectedSpot {
-                NavigationLink(value: spot) {
-                    MapSpotPreview(spot: spot, distance: viewModel.distanceText(for: spot))
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, Spacing.lg)
-                .padding(.bottom, Spacing.lg)
-                .padding(.bottom, Spacing.xxxl)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .animation(.spring(duration: 0.3), value: viewModel.selectedSpotID)
+        SpotPreviewOverlay(
+            spot: viewModel.selectedSpot,
+            distance: viewModel.selectedSpot.flatMap { viewModel.distanceText(for: $0) },
+            bottomPadding: Spacing.xxxl + Spacing.lg
+        )
     }
 
     // MARK: - Control Buttons

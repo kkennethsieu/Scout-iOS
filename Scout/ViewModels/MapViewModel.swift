@@ -163,20 +163,7 @@ final class MapViewModel {
 
     /// Frames the camera around all loaded spots, with a little padding.
     private func frameSpots() {
-        let lats = spots.map(\.publicLat)
-        let lngs = spots.map(\.publicLng)
-        guard let minLat = lats.min(), let maxLat = lats.max(),
-              let minLng = lngs.min(), let maxLng = lngs.max() else { return }
-
-        let center = CLLocationCoordinate2D(
-            latitude: (minLat + maxLat) / 2,
-            longitude: (minLng + maxLng) / 2
-        )
-        let span = MKCoordinateSpan(
-            latitudeDelta: max((maxLat - minLat) * 1.4, 0.05),
-            longitudeDelta: max((maxLng - minLng) * 1.4, 0.05)
-        )
-        let region = MKCoordinateRegion(center: center, span: span)
+        guard let region = MKCoordinateRegion(fitting: spots.map(\.coordinate)) else { return }
         cameraPosition = .region(region)
 
         // Baseline for the "Search this area" prompt: the pins cover this area.

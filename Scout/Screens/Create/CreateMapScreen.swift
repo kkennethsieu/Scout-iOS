@@ -70,14 +70,7 @@ struct CreateMapScreen: View {
 
     private var map: some View {
         Map(position: $viewModel.cameraPosition, selection: $viewModel.selectedSpotID) {
-            ForEach(viewModel.nearbySpots) { spot in
-                Annotation(spot.name, coordinate: spot.coordinate) {
-                    NearbySpotMarker(name: spot.name,
-                                     isSelected: viewModel.selectedSpotID == spot.id)
-                }
-                .tag(spot.id)
-                .annotationTitles(.hidden)
-            }
+            SpotPins(spots: viewModel.nearbySpots, selectedID: viewModel.selectedSpotID)
         }
         .mapStyle(viewModel.isHybrid ? .hybrid : .standard(pointsOfInterest: .excludingAll))
         .onMapCameraChange(frequency: .onEnd) { context in
