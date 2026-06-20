@@ -51,16 +51,21 @@ final class ReviewSearchViewModel {
     private let minQueryLength = 3
     /// Matches the endpoint's `q` maximum.
     private let maxQueryLength = 50
-    private let debounce: Duration = .milliseconds(300)
+    private let debounce: Duration
     private var searchTask: Task<Void, Never>?
     /// The trimmed query we last kicked off a fetch for, so repeat keystrokes
     /// that don't change the effective query (trailing spaces, re-typing the
     /// same text) don't hit the backend again.
     private var lastSearchedQuery: String?
 
-    init(spotID: String, service: SpotService = AppServices.spot) {
+    /// `debounce` is injectable so tests can drive the debounced path with a tiny,
+    /// deterministic interval (production keeps the 300ms keystroke debounce).
+    init(spotID: String,
+         service: SpotService = AppServices.spot,
+         debounce: Duration = .milliseconds(300)) {
         self.spotID = spotID
         self.service = service
+        self.debounce = debounce
     }
 
     // MARK: - Search

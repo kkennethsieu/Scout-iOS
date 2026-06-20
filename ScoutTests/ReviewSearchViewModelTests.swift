@@ -44,38 +44,54 @@ struct ReviewSearchViewModelTests {
 
     @Test func shortQueryNeverHitsBackend() async throws {
         let service = CountingSearchService()
-        let vm = ReviewSearchViewModel(spotID: "s1", service: service)
+        let vm = ReviewSearchViewModel(spotID: "s1", service: service, debounce: testDebounce)
 
         // Two characters is below the client minimum, so no fetch is scheduled.
         vm.query = "ba"
-        try await Task.sleep(for: debounceWindow)
+        try await Task.sleep(for: settleWindow)
         #expect(service.searchCount == 0)
         #expect(vm.state == .idle)
     }
 
     @Test func unchangedQueryIsNotRefetched() async throws {
         let service = CountingSearchService()
-        let vm = ReviewSearchViewModel(spotID: "s1", service: service)
+        let vm = ReviewSearchViewModel(spotID: "s1", service: service, debounce: testDebounce)
 
         vm.query = "basin"
-        try await Task.sleep(for: debounceWindow)
-        #expect(service.searchCount == 1)
+        try await expectCount(service, reaches: 1)
 
         // Trailing whitespace leaves the effective query unchanged — no re-hit.
         vm.query = "basin "
-        try await Task.sleep(for: debounceWindow)
+        try await Task.sleep(for: settleWindow)
         #expect(service.searchCount == 1)
 
         // A genuinely different query fetches again.
         vm.query = "ridge"
-        try await Task.sleep(for: debounceWindow)
-        #expect(service.searchCount == 2)
+        try await expectCount(service, reaches: 2)
+    }
+
+    // MARK: - Timing helpers
+
+    /// Tiny debounce so the debounced path runs near-instantly under test.
+    private let testDebounce: Duration = .milliseconds(20)
+    /// Comfortably past `testDebounce`, used to confirm a fetch did *not* fire.
+    private let settleWindow: Duration = .milliseconds(150)
+
+    /// Polls until the search endpoint has been hit `target` times (or a generous
+    /// timeout elapses), then asserts the count — robust to scheduling jitter on
+    /// loaded CI runners, unlike a single fixed sleep.
+    private func expectCount(_ service: CountingSearchService,
+                             reaches target: Int,
+                             timeout: Duration = .seconds(2)) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while service.searchCount < target, clock.now < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(service.searchCount == target)
     }
 
     // MARK: - Stubs
-
-    /// Comfortably longer than the 300ms debounce so the scheduled fetch fires.
-    private let debounceWindow: Duration = .milliseconds(500)
 
     private var twoPageService: TwoPageReviewSearchService {
         TwoPageReviewSearchService(page1: [Review.samples[0]], page2: [Review.samples[1]])
