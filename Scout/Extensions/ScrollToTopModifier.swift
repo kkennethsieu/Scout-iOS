@@ -1,3 +1,12 @@
+//
+//  ScrollToTopModifier.swift
+//  Scout
+//
+//  Created by Kenneth Sieu on 6/24/26.
+//
+
+import SwiftUI
+
 struct ScrollToTopModifier: ViewModifier {
     @Environment(TabRouter.self) private var router
 

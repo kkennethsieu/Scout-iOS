@@ -72,7 +72,9 @@ struct SpotDetailScreen: View {
                     SpotTitleBlock(name: detail.name, subtitle: detail.subtitle, rating: detail.avgRating, reviewCount: detail.reviewCount)
 
                     SpotQuickFacts(detail: detail)
-                    
+
+                    SpotAISummary(summary: detail.aiSummary)
+
                     SpotLookAround(latitude: detail.publicLat, longitude: detail.publicLng)
 
                     SpotShootingTimes(times: detail.shootingTimes)

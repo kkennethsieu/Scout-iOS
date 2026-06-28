@@ -159,12 +159,14 @@ struct SpotModelTests {
             "mode_drone_allowed": false,
             "mode_tripod_allowed": true,
             "recent_gear_recommendations": ["Wide-angle lens", "ND filter"],
-            "recent_composition_hints": ["Foreground rocks"]
+            "recent_composition_hints": ["Foreground rocks"],
+            "ai_summary": "A serene basin best shot at golden hour."
         }
         """.data(using: .utf8)!
 
         let detail = try JSONDecoder.scout.decode(SpotDetail.self, from: json)
 
+        #expect(detail.aiSummary == "A serene basin best shot at golden hour.")
         #expect(detail.modeAccessLevel == "Moderate")
         #expect(detail.avgEntranceFee == 7.5)
         #expect(detail.entranceFeeText == "$7.50")
@@ -198,6 +200,7 @@ struct SpotModelTests {
 
         let detail = try JSONDecoder.scout.decode(SpotDetail.self, from: json)
 
+        #expect(detail.aiSummary == nil)
         #expect(detail.modeAccessLevel == nil)
         #expect(detail.avgEntranceFee == nil)
         #expect(detail.entranceFeeText == "—")

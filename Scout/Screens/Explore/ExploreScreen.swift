@@ -20,6 +20,8 @@ struct ExploreScreen: View {
                 Color.sBackground.ignoresSafeArea()
 
                 ScrollView {
+                    Color.clear.frame(height: 0).id("top")
+                    
                     VStack(spacing: Spacing.lg) {
                         SSearchBar(
                             text: .constant(""),
@@ -49,6 +51,7 @@ struct ExploreScreen: View {
                     .padding(.bottom, Spacing.xxxl)
                 }
                 .scrollDismissesKeyboard(.interactively)
+                .scrollsToTopOnTabRetap()
             }
             .padding(.bottom, Spacing.xxl)
             .padding(.bottom, Spacing.xl)

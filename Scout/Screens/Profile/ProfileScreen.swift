@@ -23,6 +23,8 @@ struct ProfileScreen: View {
     var body: some View {
         NavigationStack {
             ScrollView {
+                Color.clear.frame(height: 0).id("top")
+
                 VStack(spacing: 0) {
                     ProfileHeader(profile: viewModel.profile)
                         .padding(.horizontal, Spacing.lg)
@@ -35,6 +37,7 @@ struct ProfileScreen: View {
                         .padding(.top, Spacing.sm)
                 }
             }
+            .scrollsToTopOnTabRetap()
             .background(Color.sBackground)
             .refreshable { await viewModel.load() }
             .safeAreaInset(edge: .top, spacing: 0) { topBar }

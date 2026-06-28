@@ -60,6 +60,7 @@ final class TabBarVisibility {
 @Observable
 final class TabRouter {
     var selection: MainTab = .explore
+    var scrollToTopTrigger = false
 }
 
 /// Custom bottom tab bar. Replaces SwiftUI's `TabView` bar (and its backing
@@ -68,6 +69,7 @@ final class TabRouter {
 /// `.create` tab is selectable like the rest, just rendered prominently.
 struct STabBar: View {
     @Binding var selection: MainTab
+    @Environment(TabRouter.self) private var router
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -95,6 +97,9 @@ struct STabBar: View {
     @ViewBuilder
     private func barItem(_ tab: MainTab) -> some View {
         Button {
+            if selection == tab{
+                router.scrollToTopTrigger.toggle()
+            }
             selection = tab
         } label: {
             if tab == .create {
