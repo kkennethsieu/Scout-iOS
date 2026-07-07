@@ -44,6 +44,9 @@ struct ExploreScreen: View {
                         ) {
                             showSort = true
                         }
+                        if let text = viewModel.fallbackBannerText {
+                            STipBanner(icon: "location.slash", verbatim: text)
+                        }
                         content
                     }
                     .padding(.horizontal, Spacing.lg)

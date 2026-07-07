@@ -29,6 +29,9 @@ final class MapViewModel {
     private(set) var showSearchArea = false
     /// True while an area re-search is in flight (keeps the existing pins up).
     private(set) var isSearchingArea = false
+    /// The backend had no spots near the query area and returned popular spots
+    /// from a default region instead. Drives the fallback banner + pin framing.
+    private(set) var isFallback = false
 
     /// The area currently visible on the map (updated as the camera settles).
     private var visibleRegion: SpotRegion?
@@ -49,6 +52,9 @@ final class MapViewModel {
 
     private let service: SpotService
     private let defaultRadiusKm: Double = 50
+    /// Pins per fetch. The map doesn't paginate; this matches the single-page
+    /// count the old `.items` convenience returned.
+    private let pageSize = 20
 
     init(service: SpotService = AppServices.spot) {
         self.service = service
@@ -64,12 +70,29 @@ final class MapViewModel {
 
     // MARK: - Actions
 
+    /// Banner copy shown when the map is showing fallback (default-region) spots
+    /// because nothing was found near the user; `nil` when not in fallback mode.
+    /// The city is read from the returned spots (the backend sends no separate
+    /// fallback-city field).
+    var fallbackBannerText: String? {
+        guard isFallback else { return nil }
+        if let city = spots.first?.city, !city.isEmpty {
+            return "No spots near you — here are popular spots in \(city)."
+        }
+        return "No spots near you — here are some popular spots instead."
+    }
+
     func load() async {
         state = .loading
         do {
-            spots = try await service.fetchSpots(near: queryRegion)
+            let page = try await service.fetchSpots(near: queryRegion, limit: pageSize, cursor: nil)
+            spots = page.items
+            isFallback = page.isFallback
             state = .loaded
-            if let userCoordinate {
+            // In fallback mode the pins are in a default region (not near the
+            // user), so frame them to keep them on-screen rather than centering
+            // on the user's empty area.
+            if let userCoordinate, !isFallback {
                 centerOnUser(userCoordinate)
             } else {
                 frameSpots()
@@ -126,8 +149,13 @@ final class MapViewModel {
         isSearchingArea = true
         defer { isSearchingArea = false }
         do {
-            spots = try await service.fetchSpots(near: area)
+            let page = try await service.fetchSpots(near: area, limit: pageSize, cursor: nil)
+            spots = page.items
+            isFallback = page.isFallback
             lastSearchedRegion = area
+            // Fallback pins aren't in the searched area, so frame them to keep
+            // them visible; a normal search leaves the user's camera untouched.
+            if isFallback { frameSpots() }
             // Drop a selection that's no longer on the map.
             if !spots.contains(where: { $0.id == selectedSpotID }) {
                 selectedSpotID = nil

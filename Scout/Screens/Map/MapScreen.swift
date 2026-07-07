@@ -27,10 +27,16 @@ struct MapScreen: View {
                         }
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
+
+                    if let text = viewModel.fallbackBannerText {
+                        STipBanner(icon: "location.slash", verbatim: text)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.sm)
                 .animation(.spring(duration: 0.3), value: viewModel.showSearchArea)
+                .animation(.spring(duration: 0.3), value: viewModel.fallbackBannerText)
 
                 overlay
 

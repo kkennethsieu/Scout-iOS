@@ -8,13 +8,14 @@ import CoreLocation
 /// only on the first fix.
 private final class RecordingSpotService: SpotService, @unchecked Sendable {
     var spots: [SpotSummary] = []
+    var isFallback = false
     private(set) var lastRegion: SpotRegion?
     private(set) var fetchCount = 0
 
     func fetchSpots(near region: SpotRegion?, limit: Int, cursor: String?) async throws -> PaginatedSpots {
         lastRegion = region
         fetchCount += 1
-        return PaginatedSpots(items: spots, limit: limit, nextCursor: nil)
+        return PaginatedSpots(items: spots, limit: limit, nextCursor: nil, isFallback: isFallback)
     }
     func searchSpots(query: String, limit: Int) async throws -> [SpotSummary] { [] }
     func fetchSpotDetail(id: String) async throws -> SpotDetail { .sample }
@@ -65,5 +66,30 @@ struct MapViewModelTests {
 
         #expect(service.fetchCount == afterFirst)            // no extra reload
         #expect(vm.userCoordinate?.latitude == 40.71)        // but coordinate updates
+    }
+
+    // MARK: - Fallback
+
+    @Test func fallbackLoadSetsFlagAndBannerText() async {
+        let service = RecordingSpotService()
+        service.spots = [.sample(id: "1")]
+        service.isFallback = true
+        let vm = MapViewModel(service: service)
+
+        await vm.load()
+
+        #expect(vm.isFallback)
+        #expect(vm.fallbackBannerText?.contains("popular spots") == true)
+    }
+
+    @Test func nonFallbackLoadHasNoBanner() async {
+        let service = RecordingSpotService()
+        service.spots = [.sample(id: "1")]
+        let vm = MapViewModel(service: service)
+
+        await vm.load()
+
+        #expect(!vm.isFallback)
+        #expect(vm.fallbackBannerText == nil)
     }
 }

@@ -9,6 +9,7 @@ private struct StubSpotService: SpotService {
     var spots: [SpotSummary] = []
     var detail: SpotDetail = .sample
     var reviews: [Review] = []
+    var isFallback = false
     var error: Error?
 
     func fetchSpots(near region: SpotRegion?, limit: Int, cursor: String?) async throws -> PaginatedSpots {
@@ -19,7 +20,7 @@ private struct StubSpotService: SpotService {
         let slice = Array(spots.dropFirst(start).prefix(limit))
         let end = start + slice.count
         let next = end < spots.count ? String(end) : nil
-        return PaginatedSpots(items: slice, limit: limit, nextCursor: next)
+        return PaginatedSpots(items: slice, limit: limit, nextCursor: next, isFallback: isFallback)
     }
     func searchSpots(query: String, limit: Int) async throws -> [SpotSummary] { [] }
     func fetchSpotDetail(id: String) async throws -> SpotDetail {
@@ -169,6 +170,28 @@ struct ExploreViewModelTests {
         await vm.load()
 
         #expect(vm.spotCountText == "3 spots")
+    }
+
+    // MARK: - Fallback
+
+    @Test func fallbackResponseSetsFlagAndBannerText() async {
+        let service = StubSpotService(spots: [.sample(id: "1")], isFallback: true)
+        let vm = ExploreViewModel(service: service)
+
+        await vm.load()
+
+        #expect(vm.isFallback)
+        #expect(vm.fallbackBannerText?.contains("popular spots") == true)
+    }
+
+    @Test func nonFallbackResponseHasNoBanner() async {
+        let service = StubSpotService(spots: [.sample(id: "1")])
+        let vm = ExploreViewModel(service: service)
+
+        await vm.load()
+
+        #expect(!vm.isFallback)
+        #expect(vm.fallbackBannerText == nil)
     }
 
     // MARK: - Pagination

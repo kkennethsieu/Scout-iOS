@@ -10,8 +10,10 @@ Main surfaces (a custom tab bar in `App/MainTabView.swift`, not a stock `TabView
 - **Explore** — searchable/filterable/sortable feed of spots (`SpotCard`s with a photo carousel).
 - **Map** — spots as pins (MapKit); tap a pin → preview → detail. Has a "search this area" re-query and a recenter-to-user button.
 - **Spot Detail** — hero photos, stats, shooting times, gear/composition, access logistics, reviews.
-- **Saved / Profile** — placeholders; Profile shows the signed-in user + sign out.
-- **Create (+)** — entry sheet (`ShareSpotSheet`) to upload a photo or use current location. **The downstream create flow is currently being rebuilt** — `CreateSpotFlow` just presents the entry sheet with stubbed callbacks.
+- **Saved** — the user's saved lists (Favorites + custom); list CRUD, a list-detail screen with a map view, and a "save to list" sheet.
+- **Profile** — the signed-in user's backend profile + their reviews; edit profile, settings, sign out / delete account.
+- **Create (+)** — a full pushed `NavigationStack` flow in `CreateFlowHost`: entry (`ShareLocationScreen`: upload a photo or use current location) → confirm-location map (`CreateMapScreen`) → `WriteReviewScreen` → `SuccessScreen` → spot detail. A photo's EXIF GPS seeds the pin; missing GPS falls back to device location or a location-error sheet.
+- **Search** — global spot + place search (`SearchScreen`), with recents.
 
 ## Working conventions (follow these for every change)
 
@@ -41,10 +43,15 @@ MVVM with SwiftUI `@Observable @MainActor` view models. Folders under `Scout/`:
 - **`TabBarVisibility`:** an `@Observable` (in `Components/Navigation/STabBar.swift`) passed via `.environment`. Screens hide the tab bar by toggling `isHidden` in `onAppear`/`onDisappear` (e.g. Spot Detail).
 
 ### Service layer (data)
-- `SpotService` protocol with two implementations: `LiveSpotService` (backend at `http://localhost:8000`, Firebase Bearer token) and `MockSpotService` (sample data).
-- **`AppServices.spot`** is the default dependency used everywhere: it auto-selects **`LiveSpotService` on the simulator** and **`MockSpotService` on a real device** (a device can't reach localhost). View models take an injectable `SpotService` for tests/previews.
-- Backend routes: only `GET /spots` is confirmed; `GET /spots/{id}` and `GET /spots/{id}/reviews` (paginated) are assumed. JSON is snake_case + ISO-8601 → decoded via `JSONDecoder.scout`.
-- Models: `Spot` (`SpotSummary`/`SpotDetail`), `Review`, `User`, `PhotoMetadata` (EXIF/GPS read from picked-photo `Data` via ImageIO — no photo-library permission needed), `SpotRegion`. `LocationManager` wraps CoreLocation and has a **DEBUG fixed-location override** for dev.
+- Four protocols, each with a Live + Mock implementation, all sharing `BackendClient` (base URL, `URLSession`, Firebase `Authorization: Bearer` token, GET/POST/PATCH/DELETE + decode):
+  - `SpotService` — spots feed/search/detail, reviews list/search, `submitReview`, `submitNewSpot`.
+  - `UserService` — `/users/me` profile, my-reviews, profile update, delete review/account.
+  - `SavedListService` — saved-lists snapshot, spot membership, list CRUD.
+  - `LegalService` — privacy/terms URLs.
+- **`AppServices`** is the default dependency used everywhere and currently returns the **Live services unconditionally** (the old simulator-vs-device `#if targetEnvironment(simulator)` fallback to Mock is commented out). View models take an injectable service for tests/previews (tests inject stubs; previews inject Mocks).
+- **Backend base URL is the deployed Cloud Run instance** (`https://scout-backend-...run.app`) in `BackendClient` — the `localhost:8000` dev URL is commented out just above it. Swap the two lines to run against a local backend.
+- Backend routes (per `LiveSpotService`/`LiveUserService`/`LiveSavedListService`): `GET /spots`, `/spots/search`, `/spots/{id}`, `/spots/{id}/reviews`(+`/search`), `POST /spots/{id}/reviews`, `POST /spots/with-review`; `GET/PATCH /users/me`, `/users/me/reviews`, `/users/me/lists`(+CRUD, `/spots`), `PATCH /users/me/spots/{id}/lists`; `GET /legal`. JSON is snake_case + ISO-8601 → decoded via `JSONDecoder.scout` (encoded via `JSONEncoder.scout`).
+- Models (all `nonisolated`): `SpotSummary`/`SpotDetail`, `Review`/`RecentReviewPhoto`, `User` (Firebase), `UserProfile` (backend `/users/me`), `SavedList`/`ListsSnapshot`, `Page<Item>` (cursor envelope), `TimeOfDay`/`Season` (PascalCase enums), `ProfileUpdate`, `LegalResponse`, `PhotoMetadata` (EXIF/GPS from picked-photo `Data` via ImageIO — no photo-library permission), `SpotRegion`, plus `NewReviewPayload`/`CreatedSpotReview` (in `CreateReviewViewModel.swift`). `LocationManager` wraps CoreLocation (there's a commented-out fixed-coordinate line at the top for dev, but no override is currently wired — use the simulator's Custom Location instead).
 
 ## Build / Run
 

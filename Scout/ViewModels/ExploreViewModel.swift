@@ -20,6 +20,9 @@ final class ExploreViewModel {
     private(set) var hasMore = false
     /// A `loadMore()` fetch is in flight (distinct from the initial `loading`).
     private(set) var isLoadingMore = false
+    /// The backend had no spots near the query area and returned popular spots
+    /// from a default region instead. Drives the fallback banner.
+    private(set) var isFallback = false
     var filters = SpotFilters()
     var sort: SpotSort = .scout
 
@@ -62,6 +65,18 @@ final class ExploreViewModel {
         return sort.sorted(matched, distance: sortDistance(for:))
     }
 
+    /// Banner copy shown when the feed is showing fallback (default-region) spots
+    /// because nothing was found near the user; `nil` when not in fallback mode.
+    /// The city is read from the returned spots (the backend sends no separate
+    /// fallback-city field).
+    var fallbackBannerText: String? {
+        guard isFallback else { return nil }
+        if let city = spots.first?.city, !city.isEmpty {
+            return "No spots near you — here are popular spots in \(city)."
+        }
+        return "No spots near you — here are some popular spots instead."
+    }
+
     var spotCountText: String {
         let count = filteredSpots.count
         // Count reflects loaded pages; `+` signals more are available on scroll.
@@ -89,6 +104,7 @@ final class ExploreViewModel {
             spots = page.items
             cursor = page.nextCursor
             hasMore = page.nextCursor != nil
+            isFallback = page.isFallback
             state = .loaded
         } catch {
             state = .failed(error.localizedDescription)

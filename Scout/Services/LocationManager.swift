@@ -10,7 +10,15 @@ import Observation
 @Observable
 @MainActor
 final class LocationManager: NSObject, CLLocationManagerDelegate {
-    private(set) var coordinate: CLLocationCoordinate2D?
+//    private(set) var coordinate: CLLocationCoordinate2D?
+    private(set) var coordinate: CLLocationCoordinate2D? = {
+        #if DEBUG
+        return CLLocationCoordinate2D(latitude: 36.1146, longitude: -115.1728) // las vegas
+        #else
+        return nil
+        #endif
+    }()
+
     private(set) var authorizationStatus: CLAuthorizationStatus
 
     // CLLocationCoordinate2D(latitude: 34.0522, longitude: -118.2437)   // Los Angeles
