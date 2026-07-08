@@ -31,11 +31,7 @@ struct LocationPrimerSheet: View {
             Spacer(minLength: 0)
 
             VStack(spacing: Spacing.sm) {
-                SPrimaryButton(title: "Enable Location", icon: "location.fill", action: onEnable)
-                Button("Not Now", action: onSkip)
-                    .font(.sHeadingS)
-                    .foregroundStyle(Color.sTextSecondary)
-                    .frame(minHeight: 44)
+                SPrimaryButton(title: "Continue", icon: "location.fill", action: onEnable)
             }
         }
         .padding(Spacing.xl)

@@ -173,6 +173,14 @@ final class AuthService {
         }
         return try await user.getIDToken(forcingRefresh: forcingRefresh)
     }
+
+    /// Non-throwing token accessor for anonymous-friendly requests: returns `nil`
+    /// when signed out so `BackendClient` simply omits the `Authorization` header
+    /// (the backend serves browse endpoints without a token) instead of aborting.
+    func idTokenOrNil(forcingRefresh: Bool = false) async -> String? {
+        guard Auth.auth().currentUser != nil else { return nil }
+        return try? await idToken(forcingRefresh: forcingRefresh)
+    }
 }
 
 // MARK: - Nonce helpers

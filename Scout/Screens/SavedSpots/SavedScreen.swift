@@ -9,6 +9,8 @@ struct SavedScreen: View {
     }
 
     @Environment(SavedStore.self) private var store
+    @Environment(AuthService.self) private var auth
+    @Environment(AuthGate.self) private var authGate: AuthGate?
 
     @State private var selectedTab: Tab = .lists
     @State private var showCreateList = false
@@ -68,7 +70,8 @@ struct SavedScreen: View {
             }
             .task(id: isActive) {
                 // First time: full load. Returning to the tab: silent refresh.
-                guard isActive else { return }
+                // Lists are user-scoped, so skip entirely while signed out.
+                guard isActive, auth.isAuthenticated else { return }
                 if store.state == .idle {
                     await store.load()
                 } else {
@@ -83,16 +86,28 @@ struct SavedScreen: View {
 
     @ViewBuilder
     private var content: some View {
-        switch store.state {
-        case .idle, .loading:
-            SLoadingState()
-        case .failed(let message):
-            SErrorStateView(message: message) {
-                Task { await store.load() }
+        if !auth.isAuthenticated {
+            SEmptyStateView(
+                icon: "bookmark",
+                title: "Sign in to save spots",
+                message: "Keep your favorite locations in lists.",
+                actionTitle: "Sign In"
+            ) {
+                authGate?.require {}
             }
             .padding(.top, Spacing.xxxl)
-        case .loaded:
-            lists
+        } else {
+            switch store.state {
+            case .idle, .loading:
+                SLoadingState()
+            case .failed(let message):
+                SErrorStateView(message: message) {
+                    Task { await store.load() }
+                }
+                .padding(.top, Spacing.xxxl)
+            case .loaded:
+                lists
+            }
         }
     }
 

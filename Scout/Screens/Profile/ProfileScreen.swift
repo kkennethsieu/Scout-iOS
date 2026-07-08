@@ -6,6 +6,7 @@ import SwiftUI
 struct ProfileScreen: View {
     @State private var viewModel: ProfileViewModel
     @Environment(AuthService.self) private var auth
+    @Environment(AuthGate.self) private var authGate: AuthGate?
 
     /// True when the Profile tab is the active one. Toggling it true refetches
     /// the profile doc + reviews, so the count stays fresh each time it's shown.
@@ -22,25 +23,13 @@ struct ProfileScreen: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                Color.clear.frame(height: 0).id("top")
-
-                VStack(spacing: 0) {
-                    ProfileHeader(profile: viewModel.profile)
-                        .padding(.horizontal, Spacing.lg)
-                        .padding(.top, Spacing.sm)
-
-                    // Photos tab hidden for v1 (no service-backed photos yet) —
-                    // the profile shows the user's reviews directly.
-                    ProfileReviewsList(viewModel: viewModel)
-                        .padding(Spacing.lg)
-                        .padding(.top, Spacing.sm)
+            Group {
+                if auth.isAuthenticated {
+                    signedInContent
+                } else {
+                    signedOutState
                 }
             }
-            .scrollsToTopOnTabRetap()
-            .background(Color.sBackground)
-            .refreshable { await viewModel.load() }
-            .safeAreaInset(edge: .top, spacing: 0) { topBar }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { spotID in
                 SpotDetailScreen(spotID: spotID)
@@ -58,9 +47,47 @@ struct ProfileScreen: View {
             .enableSwipeBack()
         }
         .task(id: isActive) {
-            // Refetch whenever the Profile tab becomes the active one.
-            if isActive { await viewModel.load() }
+            // Refetch whenever the Profile tab becomes the active one — but only
+            // when signed in; the profile doc is user-scoped.
+            if isActive, auth.isAuthenticated { await viewModel.load() }
         }
+    }
+
+    // MARK: - Content
+
+    private var signedInContent: some View {
+        ScrollView {
+            Color.clear.frame(height: 0).id("top")
+
+            VStack(spacing: 0) {
+                ProfileHeader(profile: viewModel.profile)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.sm)
+
+                // Photos tab hidden for v1 (no service-backed photos yet) —
+                // the profile shows the user's reviews directly.
+                ProfileReviewsList(viewModel: viewModel)
+                    .padding(Spacing.lg)
+                    .padding(.top, Spacing.sm)
+            }
+        }
+        .scrollsToTopOnTabRetap()
+        .background(Color.sBackground)
+        .refreshable { await viewModel.load() }
+        .safeAreaInset(edge: .top, spacing: 0) { topBar }
+    }
+
+    private var signedOutState: some View {
+        SEmptyStateView(
+            icon: "person.crop.circle",
+            title: "Sign in to view your profile",
+            message: "See your reviews, saved lists, and account settings.",
+            actionTitle: "Sign In"
+        ) {
+            authGate?.require {}
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.sBackground)
     }
 
     // MARK: - Top bar

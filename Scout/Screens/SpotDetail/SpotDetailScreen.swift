@@ -7,6 +7,7 @@ struct SpotDetailScreen: View {
     /// Optional so previews (which don't inject them) don't crash.
     @Environment(TabBarVisibility.self) private var tabBarVisibility: TabBarVisibility?
     @Environment(SavedStore.self) private var savedStore: SavedStore?
+    @Environment(AuthGate.self) private var authGate: AuthGate?
 
     init(spotID: String, service: SpotService = AppServices.spot) {
         _viewModel = State(initialValue: SpotDetailViewModel(spotID: spotID, service: service))
@@ -35,7 +36,7 @@ struct SpotDetailScreen: View {
                 shareURL: viewModel.detail.map { Self.mapsURL(for: $0) },
                 spotName: viewModel.detail?.name ?? "",
                 onBack: { dismiss() },
-                onTapSave: { showSaveSheet = true }
+                onTapSave: { gateSave { showSaveSheet = true } }
             )
             .padding(.top, Spacing.xs)
         }
@@ -59,6 +60,13 @@ struct SpotDetailScreen: View {
         .task {
             if viewModel.state == .idle { await viewModel.load() }
         }
+    }
+
+    /// Saving needs an account: run directly when the gate isn't injected
+    /// (previews), otherwise present sign-in first when signed out.
+    private func gateSave(_ action: @escaping () -> Void) {
+        guard let authGate else { action(); return }
+        authGate.require(action)
     }
 
     // MARK: - Content

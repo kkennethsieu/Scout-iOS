@@ -11,7 +11,9 @@ nonisolated struct BackendClient {
     var session: URLSession = .shared
 
     /// Supplies the Firebase ID token for the `Authorization: Bearer` header.
-    var token: @MainActor () async throws -> String? = { try await AuthService.shared.idToken() }
+    /// Returns `nil` when signed out so anonymous browse requests still go out
+    /// (the header is simply omitted); writes attach the token when signed in.
+    var token: @MainActor () async -> String? = { await AuthService.shared.idTokenOrNil() }
 
     /// Performs an authenticated GET and decodes the JSON body.
     func get<T: Decodable>(_ path: String, query: [String: String] = [:]) async throws -> T {
@@ -27,7 +29,7 @@ nonisolated struct BackendClient {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let bearer = try await token() {
+        if let bearer = await token() {
             request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         }
 
@@ -51,7 +53,7 @@ nonisolated struct BackendClient {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let bearer = try await token() {
+        if let bearer = await token() {
             request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         }
         request.httpBody = try JSONEncoder.scout.encode(body)
@@ -64,7 +66,7 @@ nonisolated struct BackendClient {
     func delete(_ path: String) async throws {
         var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = "DELETE"
-        if let bearer = try await token() {
+        if let bearer = await token() {
             request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         }
 

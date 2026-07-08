@@ -5,6 +5,9 @@ struct MainTabView: View {
     @State private var router = TabRouter()
     @State private var tabBarVisibility = TabBarVisibility()
     @State private var savedStore = SavedStore()
+    @State private var authGate = AuthGate()
+
+    @Environment(AuthService.self) private var auth
 
     private var selection: MainTab { router.selection }
 
@@ -25,7 +28,21 @@ struct MainTabView: View {
             .environment(tabBarVisibility)
             .environment(router)
             .environment(savedStore)
-            .task { await savedStore.load() }
+            .environment(authGate)
+            .task {
+                // Saved lists are user-scoped: only hydrate when signed in.
+                // Anonymous users get them after gated sign-in (onChange below).
+                if auth.isAuthenticated { await savedStore.load() }
+            }
+            .sheet(isPresented: $authGate.isPresenting, onDismiss: { authGate.sheetDismissed() }) {
+                AuthScreen(isModal: true)
+            }
+            .onChange(of: auth.isAuthenticated) { _, isAuthed in
+                if isAuthed {
+                    authGate.authenticationSucceeded()
+                    Task { await savedStore.load() }
+                }
+            }
             .sheet(isPresented: $showLocationPrimer, onDismiss: { hasRequestedLocation = true }) {
                 LocationPrimerSheet(
                     onEnable: {

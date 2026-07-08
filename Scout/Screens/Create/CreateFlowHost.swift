@@ -27,6 +27,10 @@ struct CreateFlowHost: View {
     /// Injected on `MainTabView`, inherited here. Optional so previews don't crash.
     @Environment(TabBarVisibility.self) private var tabBarVisibility: TabBarVisibility?
 
+    /// Action-level auth gate. Optional so previews (which don't inject it) run the
+    /// action directly instead of crashing.
+    @Environment(AuthGate.self) private var authGate: AuthGate?
+
     /// The pushed flow steps. The stack root is `ShareLocationScreen` (empty path).
     private enum Step: Hashable {
         case map
@@ -65,13 +69,15 @@ struct CreateFlowHost: View {
     var body: some View {
         NavigationStack(path: $path) {
             ShareLocationScreen(
-                onTapUpload: { showPhotoPicker = true },
+                onTapUpload: { requireAuth { showPhotoPicker = true } },
                 onUseCurrentLocation: {
-                    // The user explicitly chose location, so prompt if needed. The
-                    // coordinate is synchronous in DEBUG via the dev override;
-                    // otherwise the map adopts the device location as it arrives.
-                    location.requestPermission()
-                    choose(.currentLocation(location.coordinate))
+                    requireAuth {
+                        // The user explicitly chose location, so prompt if needed. The
+                        // coordinate is synchronous in DEBUG via the dev override;
+                        // otherwise the map adopts the device location as it arrives.
+                        location.requestPermission()
+                        choose(.currentLocation(location.coordinate))
+                    }
                 }
             )
             .navigationDestination(for: Step.self) { step in
@@ -155,6 +161,14 @@ struct CreateFlowHost: View {
     }
 
     // MARK: - Entry
+
+    /// Gates a create action behind sign-in: runs it directly when the gate isn't
+    /// injected (previews), otherwise defers to `AuthGate` (present sign-in if
+    /// needed, then run).
+    private func requireAuth(_ action: @escaping () -> Void) {
+        guard let authGate else { action(); return }
+        authGate.require(action)
+    }
 
     /// Loads the chosen photo as raw `Data`, then routes it.
     private func load(_ item: PhotosPickerItem) async {

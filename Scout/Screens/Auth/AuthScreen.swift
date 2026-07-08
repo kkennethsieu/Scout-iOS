@@ -2,10 +2,16 @@ import SwiftUI
 import AuthenticationServices
 
 struct AuthScreen: View {
+    /// `true` when presented as a sign-in sheet (from `AuthGate`) rather than as
+    /// the app root: adds a close button and respects the safe area.
+    var isModal = false
+
+    @Environment(\.dismiss) private var dismiss
+
     @State private var showEmailFlow = false
     @State private var errorMessage: String?
     @State private var isLoading = false
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Top: logo + title
@@ -28,11 +34,14 @@ struct AuthScreen: View {
                 .padding(.bottom, Spacing.md)
         }
         .padding(.top, Spacing.xxxl)
-        .padding(.bottom, Spacing.lg)
         .padding()
         .frame(maxWidth:.infinity, maxHeight: .infinity)
         .background(Color.sBackground)
-        .ignoresSafeArea()
+        // Full-bleed as the app root; respect the safe area inside a sheet.
+        .ignoresSafeArea(edges: isModal ? [] : .all)
+        .overlay(alignment: .topTrailing) {
+            if isModal { closeButton }
+        }
         .sheet(isPresented: $showEmailFlow) {
             AuthEmailScreen()
         }
@@ -185,11 +194,13 @@ struct AuthScreen: View {
             .font(.sBodyS)
             .foregroundStyle(Color.sTextTertiary)
             .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
             .tint(Color.sTextSecondary)
     }
-    
+
     private var legalAttributedString: AttributedString {
-        var result = AttributedString("By continuing, you agree to Scout's ")
+        // Explicit break keeps this to two balanced lines rather than truncating.
+        var result = AttributedString("By continuing, you agree to Scout's\n")
         
         var terms = AttributedString("Terms of Service")
         terms.underlineStyle = .single
@@ -210,8 +221,23 @@ struct AuthScreen: View {
         return result
     }
     
+    // MARK: - Close (modal only)
+
+    private var closeButton: some View {
+        Button { dismiss() } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.sTextSecondary)
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(Color.sSurface))
+        }
+        .padding(.top, Spacing.lg)
+        .padding(.trailing, Spacing.lg)
+        .accessibilityLabel("Close")
+    }
+
     // MARK: - Actions
-    
+
     private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
         isLoading = true
         Task {
@@ -248,4 +274,11 @@ struct AuthScreen: View {
 #Preview("Auth Screen — Dark") {
     AuthScreen()
         .preferredColorScheme(.dark)
+}
+
+#Preview("Auth Screen — Modal") {
+    Color.sBackground
+        .sheet(isPresented: .constant(true)) {
+            AuthScreen(isModal: true)
+        }
 }

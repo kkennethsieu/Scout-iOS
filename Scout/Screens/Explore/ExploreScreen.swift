@@ -5,6 +5,7 @@ struct ExploreScreen: View {
     @State private var viewModel: ExploreViewModel
     @State private var location = LocationManager()
     @Environment(SavedStore.self) private var savedStore: SavedStore?
+    @Environment(AuthGate.self) private var authGate: AuthGate?
     @State private var saveTarget: SpotSummary?
     @State private var showFilters = false
     @State private var showSort = false
@@ -95,6 +96,13 @@ struct ExploreScreen: View {
         }
     }
 
+    /// Saving needs an account: run directly when the gate isn't injected
+    /// (previews), otherwise present sign-in first when signed out.
+    private func gateSave(_ action: @escaping () -> Void) {
+        guard let authGate else { action(); return }
+        authGate.require(action)
+    }
+
     // MARK: - Content
 
     @ViewBuilder
@@ -153,7 +161,7 @@ struct ExploreScreen: View {
                         distance: viewModel.distanceText(for: spot),
                         isSaved: savedStore?.isSaved(spot.id) ?? false
                     ) {
-                        saveTarget = spot
+                        gateSave { saveTarget = spot }
                     }
                 }
                 .buttonStyle(.plain)
