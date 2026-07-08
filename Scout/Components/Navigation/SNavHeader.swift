@@ -46,8 +46,8 @@ struct SNavHeader: View {
                 }
             }
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.bottom, Spacing.sm)
+        .padding(.horizontal, Spacing.xl)
+        .padding(.bottom, Spacing.lg)
         .background(Color.sBackground)
         .overlay(alignment: .bottom) {
             Divider().background(Color.sBorderSubtle)

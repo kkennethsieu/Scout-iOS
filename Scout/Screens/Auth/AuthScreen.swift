@@ -33,12 +33,9 @@ struct AuthScreen: View {
                 .padding(.top, Spacing.md)
                 .padding(.bottom, Spacing.md)
         }
-        .padding(.top, Spacing.xxxl)
         .padding()
         .frame(maxWidth:.infinity, maxHeight: .infinity)
         .background(Color.sBackground)
-        // Full-bleed as the app root; respect the safe area inside a sheet.
-        .ignoresSafeArea(edges: isModal ? [] : .all)
         .overlay(alignment: .topTrailing) {
             if isModal { closeButton }
         }
@@ -205,7 +202,7 @@ struct AuthScreen: View {
         var terms = AttributedString("Terms of Service")
         terms.underlineStyle = .single
         terms.foregroundColor = Color.sTextSecondary
-        terms.link = URL(string: "https://scout.app/terms")
+        terms.link = URL(string: "https://scout-497021.web.app/terms")
         result += terms
         
         result += AttributedString(" and ")
@@ -213,7 +210,7 @@ struct AuthScreen: View {
         var privacy = AttributedString("Privacy Policy")
         privacy.underlineStyle = .single
         privacy.foregroundColor = Color.sTextSecondary
-        privacy.link = URL(string: "https://scout.app/privacy")
+        privacy.link = URL(string: "https://scout-497021.web.app/privacy")
         result += privacy
         
         result += AttributedString(".")

@@ -10,7 +10,6 @@ struct SavedScreen: View {
 
     @Environment(SavedStore.self) private var store
     @Environment(AuthService.self) private var auth
-    @Environment(AuthGate.self) private var authGate: AuthGate?
 
     @State private var selectedTab: Tab = .lists
     @State private var showCreateList = false
@@ -24,7 +23,17 @@ struct SavedScreen: View {
         Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })
     }
 
+    @ViewBuilder
     var body: some View {
+        // Signed out, the Saved tab is the sign-in screen itself.
+        if auth.isAuthenticated {
+            signedInBody
+        } else {
+            AuthScreen()
+        }
+    }
+
+    private var signedInBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -70,8 +79,8 @@ struct SavedScreen: View {
             }
             .task(id: isActive) {
                 // First time: full load. Returning to the tab: silent refresh.
-                // Lists are user-scoped, so skip entirely while signed out.
-                guard isActive, auth.isAuthenticated else { return }
+                // Only reached while signed in (the tab is `AuthScreen` otherwise).
+                guard isActive else { return }
                 if store.state == .idle {
                     await store.load()
                 } else {
@@ -86,28 +95,16 @@ struct SavedScreen: View {
 
     @ViewBuilder
     private var content: some View {
-        if !auth.isAuthenticated {
-            SEmptyStateView(
-                icon: "bookmark",
-                title: "Sign in to save spots",
-                message: "Keep your favorite locations in lists.",
-                actionTitle: "Sign In"
-            ) {
-                authGate?.require {}
+        switch store.state {
+        case .idle, .loading:
+            SLoadingState()
+        case .failed(let message):
+            SErrorStateView(message: message) {
+                Task { await store.load() }
             }
             .padding(.top, Spacing.xxxl)
-        } else {
-            switch store.state {
-            case .idle, .loading:
-                SLoadingState()
-            case .failed(let message):
-                SErrorStateView(message: message) {
-                    Task { await store.load() }
-                }
-                .padding(.top, Spacing.xxxl)
-            case .loaded:
-                lists
-            }
+        case .loaded:
+            lists
         }
     }
 

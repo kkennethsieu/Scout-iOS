@@ -6,7 +6,6 @@ import SwiftUI
 struct ProfileScreen: View {
     @State private var viewModel: ProfileViewModel
     @Environment(AuthService.self) private var auth
-    @Environment(AuthGate.self) private var authGate: AuthGate?
 
     /// True when the Profile tab is the active one. Toggling it true refetches
     /// the profile doc + reviews, so the count stays fresh each time it's shown.
@@ -21,39 +20,43 @@ struct ProfileScreen: View {
         _viewModel = State(initialValue: viewModel)
     }
 
+    @ViewBuilder
     var body: some View {
-        NavigationStack {
-            Group {
-                if auth.isAuthenticated {
-                    signedInContent
-                } else {
-                    signedOutState
-                }
-            }
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: String.self) { spotID in
-                SpotDetailScreen(spotID: spotID)
-            }
-            .navigationDestination(for: SettingsRoute.self) { _ in
-                SettingsScreen(viewModel: viewModel)
-            }
-            .navigationDestination(isPresented: $showEditProfile) {
-                if let profile = viewModel.profile {
-                    EditProfileScreen(profile: profile) { updated in
-                        viewModel.applyUpdatedProfile(updated)
-                    }
-                }
-            }
-            .enableSwipeBack()
-        }
-        .task(id: isActive) {
-            // Refetch whenever the Profile tab becomes the active one — but only
-            // when signed in; the profile doc is user-scoped.
-            if isActive, auth.isAuthenticated { await viewModel.load() }
+        // Signed out, the Profile tab is the sign-in screen itself.
+        if auth.isAuthenticated {
+            signedInBody
+        } else {
+            AuthScreen()
         }
     }
 
     // MARK: - Content
+
+    private var signedInBody: some View {
+        NavigationStack {
+            signedInContent
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: String.self) { spotID in
+                    SpotDetailScreen(spotID: spotID)
+                }
+                .navigationDestination(for: SettingsRoute.self) { _ in
+                    SettingsScreen(viewModel: viewModel)
+                }
+                .navigationDestination(isPresented: $showEditProfile) {
+                    if let profile = viewModel.profile {
+                        EditProfileScreen(profile: profile) { updated in
+                            viewModel.applyUpdatedProfile(updated)
+                        }
+                    }
+                }
+                .enableSwipeBack()
+        }
+        .task(id: isActive) {
+            // Refetch whenever the Profile tab becomes the active one. The stack
+            // is recreated on sign-in, so this also fires right after auth.
+            if isActive { await viewModel.load() }
+        }
+    }
 
     private var signedInContent: some View {
         ScrollView {
@@ -75,19 +78,6 @@ struct ProfileScreen: View {
         .background(Color.sBackground)
         .refreshable { await viewModel.load() }
         .safeAreaInset(edge: .top, spacing: 0) { topBar }
-    }
-
-    private var signedOutState: some View {
-        SEmptyStateView(
-            icon: "person.crop.circle",
-            title: "Sign in to view your profile",
-            message: "See your reviews, saved lists, and account settings.",
-            actionTitle: "Sign In"
-        ) {
-            authGate?.require {}
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.sBackground)
     }
 
     // MARK: - Top bar
