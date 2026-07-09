@@ -242,6 +242,115 @@ struct CreateReviewViewModelTests {
         }
     }
 
+    // MARK: - Duplicate spot (409 → add review to existing)
+
+    @Test func duplicateNewSpotErrorEntersDuplicatePhase() async {
+        let dup = SpotServiceError.duplicateSpot(
+            existingSpotID: "abc123", name: "Potato Harbor",
+            message: "A spot named 'Potato Harbor' already exists nearby (12m away).")
+        let vm = makeVM(photoData: Data([0x1]), service: StubSpotService(newSpotError: dup))
+        vm.draft.rating = 4
+        await vm.submit()
+        #expect(vm.phase == .duplicate(CreateReviewViewModel.DuplicateSpot(
+            id: "abc123", name: "Potato Harbor",
+            message: "A spot named 'Potato Harbor' already exists nearby (12m away).")))
+    }
+
+    @Test func addReviewToExistingSpotResubmitsToExistingAndSucceeds() async {
+        let dup = SpotServiceError.duplicateSpot(existingSpotID: "abc123",
+                                                 name: "Potato Harbor", message: nil)
+        // submitNewSpot 409s; submitReview (the re-submit) has no error → succeeds.
+        let vm = makeVM(photoData: Data([0x1]), service: StubSpotService(newSpotError: dup))
+        vm.draft.rating = 4
+        await vm.submit()
+        await vm.addReviewToExistingSpot()
+
+        #expect(vm.phase == .success)
+        #expect(vm.isNewSpot == false)                                   // re-targeted
+        #expect(vm.resultSpotID == "abc123")                            // → the existing spot
+        #expect(vm.target == .existingSpot(id: "abc123", name: "Potato Harbor"))
+        #expect(vm.createdReview != nil)
+    }
+
+    @Test func addReviewToExistingSpotIsNoOpOutsideDuplicatePhase() async {
+        let vm = makeVM(photoData: Data([0x1]), service: StubSpotService())
+        vm.draft.rating = 4
+        await vm.addReviewToExistingSpot()   // phase is .idle → guarded no-op
+        #expect(vm.phase == .idle)
+        #expect(vm.isNewSpot)                // target untouched
+    }
+
+    @Test func nonDuplicateNewSpotErrorStillFails() async {
+        let vm = makeVM(photoData: Data([0x1]),
+                        service: StubSpotService(newSpotError: SpotServiceError.http(status: 500)))
+        vm.draft.rating = 4
+        await vm.submit()
+        if case .failed = vm.phase {} else {
+            Issue.record("expected .failed phase, got \(vm.phase)")
+        }
+    }
+
+    @Test func duplicateSpotResponseDecodesFlatBody() throws {
+        let json = Data("""
+        {"code":"SPOT_ALREADY_EXISTS",\
+        "detail":"A spot named 'Potato Harbor' already exists nearby (12m away).",\
+        "spot_id":"abc123","name":"Potato Harbor","distance_m":12.0}
+        """.utf8)
+        let dup = try JSONDecoder.scout.decode(LiveSpotService.DuplicateSpotResponse.self, from: json)
+        #expect(dup.code == "SPOT_ALREADY_EXISTS")
+        #expect(dup.spotId == "abc123")
+        #expect(dup.name == "Potato Harbor")
+        #expect(dup.detail == "A spot named 'Potato Harbor' already exists nearby (12m away).")
+    }
+
+    // MARK: - Already reviewed (409 → update existing review)
+
+    @Test func alreadyReviewedErrorEntersPhase() async {
+        let conflict = SpotServiceError.alreadyReviewed(spotID: "1", reviewID: "r9",
+                                                        message: "You have already reviewed this spot.")
+        let vm = CreateReviewViewModel(target: .existingSpot(id: "1", name: "Cedar Cathedral"),
+                                       coordinate: coordinate, regionText: "Portland, USA",
+                                       photoData: Data([0x1]), service: StubSpotService(submitReviewError: conflict))
+        vm.draft.rating = 4
+        await vm.submit()
+        #expect(vm.phase == .alreadyReviewed(reviewID: "r9"))
+    }
+
+    @Test func updateExistingReviewPatchesAndSucceeds() async {
+        let conflict = SpotServiceError.alreadyReviewed(spotID: "1", reviewID: "r9", message: nil)
+        // submitReview 409s; updateReview (the PATCH) has no error → succeeds.
+        let vm = CreateReviewViewModel(target: .existingSpot(id: "1", name: "Cedar Cathedral"),
+                                       coordinate: coordinate, regionText: "Portland, USA",
+                                       photoData: Data([0x1]), service: StubSpotService(submitReviewError: conflict))
+        vm.draft.rating = 4
+        await vm.submit()
+        await vm.updateExistingReview()
+
+        #expect(vm.phase == .success)
+        #expect(vm.resultSpotID == "1")            // routes to the existing spot
+        #expect(vm.isNewSpot == false)
+        #expect(vm.createdReview != nil)
+    }
+
+    @Test func updateExistingReviewIsNoOpOutsideAlreadyReviewedPhase() async {
+        let vm = makeVM(photoData: Data([0x1]), service: StubSpotService())
+        vm.draft.rating = 4
+        await vm.updateExistingReview()   // phase is .idle → guarded no-op
+        #expect(vm.phase == .idle)
+    }
+
+    @Test func reviewAlreadyExistsResponseDecodesFlatBody() throws {
+        let json = Data("""
+        {"code":"REVIEW_ALREADY_EXISTS",\
+        "detail":"You have already reviewed this spot.",\
+        "spot_id":"1","review_id":"r9"}
+        """.utf8)
+        let existing = try JSONDecoder.scout.decode(LiveSpotService.ReviewAlreadyExistsResponse.self, from: json)
+        #expect(existing.code == "REVIEW_ALREADY_EXISTS")
+        #expect(existing.spotId == "1")
+        #expect(existing.reviewId == "r9")
+    }
+
     // MARK: - Result accessors (feed the success screen)
 
     @Test func newSpotResultUsesSavedSpot() async {
@@ -283,6 +392,12 @@ private enum StubError: Error { case boom }
 private nonisolated struct StubSpotService: SpotService {
     var review: Review = Review.samples[0]
     var error: Error?
+    /// Thrown from `submitNewSpot` only (falls back to `error`), so a test can make
+    /// the new-spot create fail while the existing-spot re-submit still succeeds.
+    var newSpotError: Error?
+    /// Thrown from `submitReview` only (falls back to `error`), so a test can make
+    /// the existing-spot review fail while `updateReview` still succeeds.
+    var submitReviewError: Error?
 
     func fetchSpots(near region: SpotRegion?, limit: Int, cursor: String?) async throws -> PaginatedSpots {
         PaginatedSpots(items: [], limit: limit, nextCursor: nil)
@@ -297,10 +412,16 @@ private nonisolated struct StubSpotService: SpotService {
     }
 
     func submitReview(spotID: String, payload: NewReviewPayload) async throws -> Review {
+        if let submitReviewError { throw submitReviewError }
+        if let error { throw error }
+        return review
+    }
+    func updateReview(reviewID: String, payload: NewReviewPayload) async throws -> Review {
         if let error { throw error }
         return review
     }
     func submitNewSpot(payload: NewReviewPayload) async throws -> CreatedSpotReview {
+        if let newSpotError { throw newSpotError }
         if let error { throw error }
         return CreatedSpotReview(spot: .sample, review: review)
     }

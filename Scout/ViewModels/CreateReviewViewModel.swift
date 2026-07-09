@@ -25,12 +25,25 @@ final class CreateReviewViewModel {
         case newSpot(name: String)
     }
 
+    /// The existing spot a duplicate-create (409) resolved to — enough to prompt
+    /// "add your review there instead?" and to re-target the submission.
+    struct DuplicateSpot: Equatable {
+        let id: String
+        let name: String
+        let message: String?
+    }
+
     /// Submission lifecycle for the footer button / overlays.
     enum SubmitPhase: Equatable {
         case idle
         case submitting
         case success
         case failed(String)
+        /// The create hit an existing spot; offer to add the review to it.
+        case duplicate(DuplicateSpot)
+        /// The user already reviewed this spot; offer to update that review with
+        /// the current draft. Carries the existing review's id for the PATCH.
+        case alreadyReviewed(reviewID: String)
     }
 
     // MARK: - Tunables / backend constraints
@@ -208,16 +221,28 @@ final class CreateReviewViewModel {
     /// seasons are emitted in canonical order as their raw backend strings; the
     /// tristate logistics pass through as `Bool?` (nil = unanswered).
     func makePayload() -> NewReviewPayload {
+        Self.payload(from: draft, name: spotName,
+                     lat: coordinate?.latitude ?? 0, lng: coordinate?.longitude ?? 0,
+                     photos: photos)
+    }
+
+    /// Maps a `ReviewDraft` onto the submission payload — shared by the create
+    /// flow and the edit flow (`EditReviewViewModel`). Times/seasons are emitted in
+    /// canonical order as raw backend strings; the tristate logistics pass through
+    /// as `Bool?`. `name`/`lat`/`lng`/`photos` are supplied by the caller (the edit
+    /// endpoint ignores them — it PATCHes review content only).
+    nonisolated static func payload(from draft: ReviewDraft, name: String,
+                                    lat: Double, lng: Double, photos: [Data]) -> NewReviewPayload {
         NewReviewPayload(
-            name: spotName.trimmingCharacters(in: .whitespacesAndNewlines),
-            lat: coordinate?.latitude ?? 0,
-            lng: coordinate?.longitude ?? 0,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            lat: lat,
+            lng: lng,
             overallRating: draft.rating,
             notes: draft.notes,
-            bestTimeOfDay: Self.timeOptions.filter { draft.times.contains($0) }.map(\.rawValue),
-            bestSeason: Self.seasonOptions.filter { draft.seasons.contains($0) }.map(\.rawValue),
+            bestTimeOfDay: timeOptions.filter { draft.times.contains($0) }.map(\.rawValue),
+            bestSeason: seasonOptions.filter { draft.seasons.contains($0) }.map(\.rawValue),
             accessLevel: draft.accessLevel,
-            entranceFee: Self.parseFee(draft.entranceFee),
+            entranceFee: parseFee(draft.entranceFee),
             crowdLevel: draft.crowdLevel,
             gearRecommendations: draft.gear,
             compositionHints: draft.compositionHint,
@@ -243,6 +268,41 @@ final class CreateReviewViewModel {
                 createdSpot = result.spot
                 createdReview = result.review
             }
+            phase = .success
+        } catch let error as SpotServiceError {
+            switch error {
+            case .duplicateSpot(let id, let name, let message):
+                phase = .duplicate(DuplicateSpot(id: id, name: name, message: message))
+            case .alreadyReviewed(_, let reviewID, _):
+                phase = .alreadyReviewed(reviewID: reviewID)
+            default:
+                phase = .failed(error.localizedDescription)
+            }
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Confirms the "add your review to the existing spot" prompt: re-target this
+    /// submission at the spot the duplicate resolved to and re-run `submit()`,
+    /// which now takes the existing-spot branch (`POST /spots/{id}/reviews`). All
+    /// the derived state (`spotName`, `isNewSpot`, `resultSpotID`) follows the new
+    /// target, so the success screen and "See your spot" route to the real spot.
+    func addReviewToExistingSpot() async {
+        guard case .duplicate(let dup) = phase else { return }
+        target = .existingSpot(id: dup.id, name: dup.name)
+        await submit()
+    }
+
+    /// Confirms the "you've already reviewed this spot" prompt: replace the
+    /// existing review with the current draft via `PATCH /reviews/{id}`. `target`
+    /// is already `.existingSpot` (this only follows a `submitReview` conflict), so
+    /// on success `resultSpotID` routes the success screen to that spot.
+    func updateExistingReview() async {
+        guard case .alreadyReviewed(let reviewID) = phase else { return }
+        phase = .submitting
+        do {
+            createdReview = try await service.updateReview(reviewID: reviewID, payload: makePayload())
             phase = .success
         } catch {
             phase = .failed(error.localizedDescription)

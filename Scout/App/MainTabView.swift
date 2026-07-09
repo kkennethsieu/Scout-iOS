@@ -6,6 +6,7 @@ struct MainTabView: View {
     @State private var tabBarVisibility = TabBarVisibility()
     @State private var savedStore = SavedStore()
     @State private var authGate = AuthGate()
+    @State private var toasts = ToastCenter()
 
     @Environment(AuthService.self) private var auth
 
@@ -25,10 +26,17 @@ struct MainTabView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.1), value: tabBarVisibility.isHidden)
+            // Single app-wide toast host, above every tab and surviving the
+            // sign-out flip. Screens post via `@Environment(ToastCenter.self)`.
+            .sToast(message: Binding(
+                get: { toasts.message },
+                set: { if $0 == nil { toasts.dismiss() } }
+            ))
             .environment(tabBarVisibility)
             .environment(router)
             .environment(savedStore)
             .environment(authGate)
+            .environment(toasts)
             .task {
                 // Saved lists are user-scoped: only hydrate when signed in.
                 // Anonymous users get them after gated sign-in (onChange below).

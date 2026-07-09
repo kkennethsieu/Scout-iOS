@@ -14,6 +14,7 @@ struct SavedListDetailScreen: View {
     @Environment(TabBarVisibility.self) private var tabBarVisibility: TabBarVisibility?
     @Environment(TabRouter.self) private var router: TabRouter?
     @Environment(AuthGate.self) private var authGate: AuthGate?
+    @Environment(ToastCenter.self) private var toasts: ToastCenter?
 
     @State private var saveTarget: SpotSummary?
     @State private var sort: SavedSpotSort = .recentlyAdded
@@ -116,7 +117,10 @@ struct SavedListDetailScreen: View {
 
     private func submitEdit(name: String, description: String) {
         Task {
-            do { try await store.updateList(id: list.id, name: name, description: description) }
+            do {
+                try await store.updateList(id: list.id, name: name, description: description)
+                toasts?.show("List updated")
+            }
             catch { actionError = error.localizedDescription }
         }
     }
@@ -126,6 +130,7 @@ struct SavedListDetailScreen: View {
             do {
                 try await store.deleteList(id: list.id)
                 dismiss()
+                toasts?.show("List deleted")
             } catch {
                 actionError = error.localizedDescription
             }

@@ -6,6 +6,9 @@ struct SPrimaryButton: View {
     var icon: String? = nil
     var trailingIcon: String? = nil
     var isLoading: Bool = false
+    /// Fill color — defaults to the brand accent; pass `.sError` for a destructive
+    /// action (e.g. a "Discard changes" confirmation).
+    var tint: Color = .sAccent
     let action: () -> Void
     
     // MARK: - Body
@@ -34,20 +37,21 @@ struct SPrimaryButton: View {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, minHeight: 52)
         }
-        .buttonStyle(SPrimaryButtonStyle())
+        .buttonStyle(SPrimaryButtonStyle(tint: tint))
         .disabled(isLoading)
         .sensoryFeedback(.impact(weight: .light), trigger: isLoading)
     }
 }
 
 private struct SPrimaryButtonStyle: ButtonStyle {
+    var tint: Color = .sAccent
     @Environment(\.isEnabled) private var isEnabled
-    
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(
                 RoundedRectangle(cornerRadius: Radius.md)
-                    .fill(Color.sAccent)
+                    .fill(tint)
             )
             .opacity(opacity(for: configuration))
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)

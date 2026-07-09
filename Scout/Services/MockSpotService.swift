@@ -22,6 +22,9 @@ nonisolated protocol SpotService {
     /// Creates a new spot + its first review in one request (multipart). The
     /// backend reverse-geocodes the coordinate; returns the saved spot + review.
     func submitNewSpot(payload: NewReviewPayload) async throws -> CreatedSpotReview
+    /// Updates the signed-in user's existing review (owner-only JSON PATCH; text
+    /// and attributes only — photos aren't editable). Returns the updated review.
+    func updateReview(reviewID: String, payload: NewReviewPayload) async throws -> Review
 }
 
 extension SpotService {
@@ -29,6 +32,12 @@ extension SpotService {
     /// (Search, Map, CreateMap).
     func fetchSpots(near region: SpotRegion? = nil) async throws -> [SpotSummary] {
         try await fetchSpots(near: region, limit: 20, cursor: nil).items
+    }
+
+    /// Default so read-only conformers (previews / most test stubs) don't have to
+    /// implement it. `LiveSpotService` and `MockSpotService` override it.
+    func updateReview(reviewID: String, payload: NewReviewPayload) async throws -> Review {
+        throw SpotServiceError.invalidResponse
     }
 }
 
@@ -105,6 +114,11 @@ nonisolated struct MockSpotService: SpotService {
     func submitNewSpot(payload: NewReviewPayload) async throws -> CreatedSpotReview {
         try await Task.sleep(for: delay)
         return CreatedSpotReview(spot: .sample, review: Review.samples[0])
+    }
+
+    func updateReview(reviewID: String, payload: NewReviewPayload) async throws -> Review {
+        try await Task.sleep(for: delay)
+        return Review.samples[0]
     }
 }
 

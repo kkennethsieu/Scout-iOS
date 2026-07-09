@@ -158,8 +158,9 @@ struct ProfileViewModelTests {
         let vm = makeVM(service)
         await vm.load()
 
-        await vm.deleteReview(review("a"))
+        let ok = await vm.deleteReview(review("a"))
 
+        #expect(ok)
         #expect(vm.reviews.map(\.id) == ["b"])
         #expect(vm.profile?.reviewCount == 1)
         #expect(vm.deleteError == nil)
@@ -176,8 +177,9 @@ struct ProfileViewModelTests {
         let vm = makeVM(service)
         await vm.load()
 
-        await vm.deleteReview(review("a"))
+        let ok = await vm.deleteReview(review("a"))
 
+        #expect(ok == false)
         #expect(vm.reviews.map(\.id) == ["a", "b"])
         #expect(vm.profile?.reviewCount == 2)
         #expect(vm.deleteError != nil)
@@ -203,6 +205,43 @@ struct ProfileViewModelTests {
 
         #expect(vm.deletingReviewID == nil)
         #expect(vm.reviews.isEmpty)
+    }
+
+    // MARK: - Apply edited review
+
+    @Test func applyUpdatedReviewSwapsInPlacePreservingOrder() async {
+        let service = StubService(pages: [
+            nil: PaginatedReviews(items: [review("a"), review("b")], limit: 10, nextCursor: nil)
+        ])
+        let vm = makeVM(service)
+        await vm.load()
+
+        var edited = review("a")
+        edited = Review(id: "a", spotId: edited.spotId, spotName: edited.spotName,
+                        publicLat: 0, publicLng: 0, city: edited.city, adminArea: edited.adminArea,
+                        userId: edited.userId, authorName: nil, authorPhotoUrl: nil, photoUrls: [],
+                        overallRating: 1, notes: "edited", bestTimeOfDay: [], bestSeason: [],
+                        accessLevel: nil, entranceFee: nil, crowdLevel: nil,
+                        gearRecommendations: nil, compositionHints: nil,
+                        permitRequired: nil, droneAllowed: nil, tripodAllowed: nil,
+                        createdAt: edited.createdAt)
+        vm.applyUpdatedReview(edited)
+
+        #expect(vm.reviews.map(\.id) == ["a", "b"])                       // order preserved
+        #expect(vm.reviews.first { $0.id == "a" }?.notes == "edited")
+        #expect(vm.reviews.first { $0.id == "a" }?.overallRating == 1)
+    }
+
+    @Test func applyUpdatedReviewIgnoresUnknownID() async {
+        let service = StubService(pages: [
+            nil: PaginatedReviews(items: [review("a")], limit: 10, nextCursor: nil)
+        ])
+        let vm = makeVM(service)
+        await vm.load()
+
+        vm.applyUpdatedReview(review("missing"))
+
+        #expect(vm.reviews.map(\.id) == ["a"])
     }
 
     // MARK: - Account deletion

@@ -12,6 +12,23 @@ struct WriteReviewScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: CreateReviewViewModel
     @State private var showError = false
+    /// The active confirmation prompt, derived from the view model's submit phase
+    /// (see `.onChange` below). Driving it from `phase` — rather than only from the
+    /// submit-button tap — means a prompt triggered *by another prompt's action*
+    /// (e.g. "Add my review" → the spot exists → "you already reviewed it")
+    /// appears immediately, with no second Submit tap.
+    @State private var prompt: ActivePrompt?
+
+    /// The two mutually-exclusive create-flow confirmations, both rendered with the
+    /// shared `SConfirmationDialog`.
+    private enum ActivePrompt {
+        case duplicateSpot(CreateReviewViewModel.DuplicateSpot)
+        case alreadyReviewed(reviewID: String)
+    }
+
+    private var promptBinding: Binding<ActivePrompt?> {
+        Binding(get: { prompt }, set: { prompt = $0 })
+    }
 
     init(viewModel: CreateReviewViewModel) {
         _viewModel = State(initialValue: viewModel)
@@ -42,58 +59,7 @@ struct WriteReviewScreen: View {
 
                     STipBanner(message: "**Tip:** High-resolution shots with natural lighting showcase spots best.")
 
-                    RateExperienceField(rating: $viewModel.draft.rating)
-
-                    SSection(title: "Review Notes") {
-                        STextArea(
-                            text: $viewModel.draft.notes,
-                            placeholder: "Share your experience, tips for other photographers, or gear recommendations…",
-                            minHeight: 140
-                        )
-                    }
-
-                    SSection(title: "Composition Hint") {
-                        STextArea(
-                            text: $viewModel.draft.compositionHint,
-                            placeholder: "e.g., Best from low angle near the rocks"
-                        )
-                    }
-
-                    SSection(title: "Gear Recommendation") {
-                        STextArea(
-                            text: $viewModel.draft.gear,
-                            placeholder: "e.g., Wide preferred / Telephoto for compression"
-                        )
-                    }
-
-                    SMultiChipGroup(
-                        title: "Best time of day",
-                        options: CreateReviewViewModel.timeOptions,
-                        selection: $viewModel.draft.times,
-                        titleFont: .sHeadingL
-                    ) { $0.label }
-
-                    SMultiChipGroup(
-                        title: "Best season",
-                        options: CreateReviewViewModel.seasonOptions,
-                        selection: $viewModel.draft.seasons,
-                        titleFont: .sHeadingL
-                    ) { $0.label }
-
-                    SSingleChipGroup(
-                        title: "Access Level",
-                        options: CreateReviewViewModel.accessOptions,
-                        selection: $viewModel.draft.accessLevel,
-                        titleFont: .sHeadingL,
-                    ) { $0 }
-
-                    AccessLogisticsCard(
-                        permitRequired: $viewModel.draft.permitRequired,
-                        droneAllowed: $viewModel.draft.droneAllowed,
-                        tripodAllowed: $viewModel.draft.tripodAllowed,
-                        entranceFee: $viewModel.draft.entranceFee,
-                        crowdLevel: $viewModel.draft.crowdLevel
-                    )
+                    ReviewFormFields(draft: $viewModel.draft)
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.lg)
@@ -105,21 +71,54 @@ struct WriteReviewScreen: View {
                 isEnabled: viewModel.canSubmit,
                 hint: viewModel.submitHint
             ) {
-                Task {
-                    await viewModel.submit()
-                    // Success is handled by the flow container (it observes
-                    // `phase`); here we only need to surface a failure.
-                    if case .failed = viewModel.phase { showError = true }
-                }
+                // Presentation is driven centrally by `onChange(of: phase)` below,
+                // so both the initial submit and any prompt-triggered follow-up
+                // (e.g. "Add my review") surface their result without a re-tap.
+                Task { await viewModel.submit() }
             }
         }
         .background(Color.sBackground)
         .toolbar(.hidden, for: .navigationBar)
+        // Map every terminal submit phase to its prompt. Success is handled by the
+        // flow container (`CreateFlowHost` observes `phase`), so it's not here.
+        .onChange(of: viewModel.phase) { _, phase in
+            switch phase {
+            case .duplicate(let dup):       prompt = .duplicateSpot(dup)
+            case .alreadyReviewed(let id):  prompt = .alreadyReviewed(reviewID: id)
+            case .failed:                   prompt = nil; showError = true
+            case .success:                  prompt = nil
+            default:                        break
+            }
+        }
         .alert("Couldn't post your review", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {
             if case .failed(let message) = viewModel.phase {
                 Text(message)
+            }
+        }
+        .sConfirmationDialog(item: promptBinding) { active in
+            switch active {
+            case .duplicateSpot(let dup):
+                SConfirmationDialog(
+                    title: "Spot already exists",
+                    message: dup.message ?? "A spot already exists at this location.",
+                    primaryTitle: "Add my review",
+                    isPrimaryLoading: viewModel.isSubmitting,
+                    primaryAction: { Task { await viewModel.addReviewToExistingSpot() } },
+                    secondaryTitle: "Not now",
+                    secondaryAction: { prompt = nil }
+                )
+            case .alreadyReviewed:
+                SConfirmationDialog(
+                    title: "You've already reviewed this spot",
+                    message: "Would you like to replace your existing review with this one?",
+                    primaryTitle: "Update Review",
+                    isPrimaryLoading: viewModel.isSubmitting,
+                    primaryAction: { Task { await viewModel.updateExistingReview() } },
+                    secondaryTitle: "Cancel",
+                    secondaryAction: { prompt = nil }
+                )
             }
         }
     }

@@ -10,6 +10,7 @@ struct SavedScreen: View {
 
     @Environment(SavedStore.self) private var store
     @Environment(AuthService.self) private var auth
+    @Environment(ToastCenter.self) private var toasts: ToastCenter?
 
     @State private var selectedTab: Tab = .lists
     @State private var showCreateList = false
@@ -67,7 +68,10 @@ struct SavedScreen: View {
             .sheet(isPresented: $showCreateList) {
                 CreateListSheet { name, description in
                     Task {
-                        do { try await store.createList(name: name, description: description) }
+                        do {
+                            try await store.createList(name: name, description: description)
+                            toasts?.show("List created")
+                        }
                         catch { actionError = error.localizedDescription }
                     }
                 }

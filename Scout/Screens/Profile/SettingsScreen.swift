@@ -6,6 +6,7 @@ import SwiftUI
 struct SettingsScreen: View {
     @State private var viewModel: ProfileViewModel
     @Environment(AuthService.self) private var auth
+    @Environment(ToastCenter.self) private var toasts: ToastCenter?
     @Environment(\.openURL) private var openURL
 
     /// Presents the "log out" confirmation dialog.
@@ -45,7 +46,10 @@ struct SettingsScreen: View {
             titleVisibility: .visible
         ) {
             Button("Log out", role: .destructive) {
-                try? auth.signOut()
+                do {
+                    try auth.signOut()
+                    toasts?.show("Signed out")
+                } catch { }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -60,6 +64,7 @@ struct SettingsScreen: View {
                 Task {
                     if await viewModel.deleteAccount() {
                         try? auth.signOut()
+                        toasts?.show("Account deleted")
                     }
                 }
             }

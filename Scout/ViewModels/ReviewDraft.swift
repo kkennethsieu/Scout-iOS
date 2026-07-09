@@ -9,7 +9,7 @@ import Foundation
 /// `CreateReviewViewModel` owns one and maps it onto the submission payload at
 /// submit time. Spot identity (name / coordinate / photos) lives on the VM, not
 /// here — this is review content only.
-struct ReviewDraft {
+struct ReviewDraft: Equatable {
     var rating: Int = 0
     var notes: String = ""
     var compositionHint: String = ""
@@ -26,4 +26,24 @@ struct ReviewDraft {
     // Numeric amount as entered text ("" = unanswered). Parsed to `Double?` at the
     // payload seam; backend `entrance_fee` is `Optional[float]` (≥ 0).
     var entranceFee: String = ""
+
+    init() {}
+
+    /// Seeds the form from an existing review, for the edit flow. Inverse of the
+    /// draft → payload mapping: optional strings collapse to "", the raw
+    /// time/season lists become selection sets, and the fee renders back to text.
+    init(from review: Review) {
+        rating = review.overallRating
+        notes = review.notes ?? ""
+        compositionHint = review.compositionHints ?? ""
+        gear = review.gearRecommendations ?? ""
+        times = Set(review.times)
+        seasons = Set(review.seasons)
+        accessLevel = review.accessLevel
+        crowdLevel = review.crowdLevel
+        permitRequired = review.permitRequired
+        droneAllowed = review.droneAllowed
+        tripodAllowed = review.tripodAllowed
+        entranceFee = review.entranceFee.map { $0.formatted(.number.grouping(.never)) } ?? ""
+    }
 }

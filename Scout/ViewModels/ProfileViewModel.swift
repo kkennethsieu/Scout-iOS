@@ -108,9 +108,11 @@ final class ProfileViewModel {
     // MARK: - Delete
 
     /// Deletes one of the user's reviews. Awaits the server, then removes the card
-    /// and decrements the header count. On failure the review is kept and the error
-    /// is surfaced for the screen to show.
-    func deleteReview(_ review: Review) async {
+    /// and decrements the header count. Returns `true` on success (so the screen
+    /// can confirm with a toast); on failure the review is kept and the error is
+    /// surfaced.
+    @discardableResult
+    func deleteReview(_ review: Review) async -> Bool {
         deletingReviewID = review.id
         defer { deletingReviewID = nil }
         do {
@@ -119,13 +121,24 @@ final class ProfileViewModel {
             if let current = profile?.reviewCount {
                 profile?.reviewCount = max(0, current - 1)
             }
+            return true
         } catch {
             deleteError = error.localizedDescription
+            return false
         }
     }
 
     func dismissDeleteError() {
         deleteError = nil
+    }
+
+    /// Swaps an edited review into the list in place (matched by id), so the card
+    /// reflects the change immediately after Edit saves — no refetch, scroll
+    /// position and pagination preserved. No-ops if the id isn't present. The
+    /// success toast is posted by the screen (global `ToastCenter`).
+    func applyUpdatedReview(_ review: Review) {
+        guard let index = reviews.firstIndex(where: { $0.id == review.id }) else { return }
+        reviews[index] = review
     }
 
     /// Adopts a profile returned from Edit Profile's save, so the header reflects

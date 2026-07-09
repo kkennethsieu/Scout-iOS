@@ -12,6 +12,7 @@ struct SaveToListSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(SavedStore.self) private var store: SavedStore?
+    @Environment(ToastCenter.self) private var toasts: ToastCenter?
 
     @State private var selected: Set<String> = []
     @State private var initialSelection: Set<String> = []
@@ -78,11 +79,18 @@ struct SaveToListSheet: View {
     }
 
     /// One PATCH with the final set when the sheet closes (only if it changed).
-    /// The store outlives the sheet, so this completes after dismissal.
+    /// The store outlives the sheet, so this completes after dismissal — and the
+    /// global toast host (also outside the sheet) shows the confirmation.
     private func commit() {
         guard let store, selected != initialSelection else { return }
         let ids = Array(selected)
-        Task { try? await store.setMembership(spotID: spotID, listIDs: ids) }
+        let saved = !selected.isEmpty
+        Task {
+            do {
+                try await store.setMembership(spotID: spotID, listIDs: ids)
+                toasts?.show(saved ? "Saved to your lists" : "Removed from your lists")
+            } catch { }
+        }
     }
 }
 

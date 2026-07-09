@@ -73,7 +73,69 @@ nonisolated struct LiveSpotService: SpotService {
         request.httpBody = body
 
         let (data, response) = try await client.session.data(for: request)
+
+        // The user can only review a spot once. A repeat comes back as 409
+        // `REVIEW_ALREADY_EXISTS` carrying their existing review's id — surface it
+        // typed so the UI can offer to update that review with the new draft.
+        if let http = response as? HTTPURLResponse, http.statusCode == 409,
+           let existing = try? JSONDecoder.scout.decode(ReviewAlreadyExistsResponse.self, from: data),
+           existing.code == "REVIEW_ALREADY_EXISTS" {
+            throw SpotServiceError.alreadyReviewed(spotID: existing.spotId,
+                                                   reviewID: existing.reviewId,
+                                                   message: existing.detail)
+        }
+
         return try client.decode(Review.self, from: data, response: response)
+    }
+
+    /// Updates the signed-in user's review (owner-only JSON PATCH). Text/attribute
+    /// fields only — the endpoint doesn't touch photos.
+    func updateReview(reviewID: String, payload: NewReviewPayload) async throws -> Review {
+        try await client.patch("reviews/\(reviewID)", body: ReviewUpdatePayload(payload))
+    }
+
+    /// The flattened body of a 409 `REVIEW_ALREADY_EXISTS` response. Keys arrive
+    /// snake_case and are camel-cased by `JSONDecoder.scout` (`review_id` → `reviewId`).
+    nonisolated struct ReviewAlreadyExistsResponse: Decodable {
+        let code: String
+        let spotId: String
+        let reviewId: String
+        let detail: String?
+    }
+
+    /// JSON body for `PATCH /reviews/{id}` (`ReviewUpdate`). Mirrors the review
+    /// content of a `NewReviewPayload` minus spot identity and photos. Encoded by
+    /// `JSONEncoder.scout` (`.convertToSnakeCase`); nil optionals are omitted, so
+    /// the backend's `exclude_unset` preserves those fields' existing values while
+    /// the always-sent fields replace theirs with the new draft.
+    nonisolated struct ReviewUpdatePayload: Encodable {
+        let overallRating: Int
+        let notes: String
+        let bestTimeOfDay: [String]
+        let bestSeason: [String]
+        let accessLevel: String?
+        let entranceFee: Double?
+        let crowdLevel: String?
+        let gearRecommendations: String
+        let compositionHints: String
+        let permitRequired: Bool?
+        let droneAllowed: Bool?
+        let tripodAllowed: Bool?
+
+        init(_ p: NewReviewPayload) {
+            overallRating = p.overallRating
+            notes = p.notes
+            bestTimeOfDay = p.bestTimeOfDay
+            bestSeason = p.bestSeason
+            accessLevel = p.accessLevel
+            entranceFee = p.entranceFee
+            crowdLevel = p.crowdLevel
+            gearRecommendations = p.gearRecommendations
+            compositionHints = p.compositionHints
+            permitRequired = p.permitRequired
+            droneAllowed = p.droneAllowed
+            tripodAllowed = p.tripodAllowed
+        }
     }
 
     func submitNewSpot(payload: NewReviewPayload) async throws -> CreatedSpotReview {
@@ -91,7 +153,29 @@ nonisolated struct LiveSpotService: SpotService {
         request.httpBody = body
 
         let (data, response) = try await client.session.data(for: request)
+
+        // A duplicate spot comes back as 409 `SPOT_ALREADY_EXISTS` carrying the
+        // existing spot's id/name/message. Surface it as a typed error so the UI
+        // can offer to add the review to that spot instead of dead-ending. Any
+        // other 409 (or an unparseable body) falls through to the generic path.
+        if let http = response as? HTTPURLResponse, http.statusCode == 409,
+           let dup = try? JSONDecoder.scout.decode(DuplicateSpotResponse.self, from: data),
+           dup.code == "SPOT_ALREADY_EXISTS" {
+            throw SpotServiceError.duplicateSpot(existingSpotID: dup.spotId,
+                                                 name: dup.name,
+                                                 message: dup.detail)
+        }
+
         return try client.decode(CreatedSpotReview.self, from: data, response: response)
+    }
+
+    /// The flattened body of a 409 `SPOT_ALREADY_EXISTS` response. Keys arrive
+    /// snake_case and are camel-cased by `JSONDecoder.scout` (`spot_id` → `spotId`).
+    nonisolated struct DuplicateSpotResponse: Decodable {
+        let code: String
+        let spotId: String
+        let name: String
+        let detail: String?
     }
 
     // MARK: - Multipart
@@ -174,6 +258,12 @@ enum SpotServiceError: LocalizedError {
     case http(status: Int)
     case decoding(Error)
     case imageEncoding
+    /// A create was rejected because a spot already exists nearby (409). Carries
+    /// the existing spot so the UI can offer to add the review there.
+    case duplicateSpot(existingSpotID: String, name: String, message: String?)
+    /// A review was rejected because the user already reviewed this spot (409).
+    /// Carries their existing review so the UI can offer to update it.
+    case alreadyReviewed(spotID: String, reviewID: String, message: String?)
 
     var errorDescription: String? {
         switch self {
@@ -185,8 +275,16 @@ enum SpotServiceError: LocalizedError {
             return "Couldn't prepare a photo for upload."
         case .http(let status) where status == 401:
             return "Your session expired. Please sign in again."
+        case .http(let status) where status == 409:
+            // The backend rejects a create when a spot already exists at that
+            // location/name. Retrying can't succeed, so don't suggest it.
+            return "A spot already exists at this location."
         case .http(let status):
             return "Server error (\(status)). Please try again."
+        case .duplicateSpot(_, _, let message):
+            return message ?? "A spot already exists at this location."
+        case .alreadyReviewed(_, _, let message):
+            return message ?? "You've already reviewed this spot."
         case .decoding:
             return "Couldn't read the server's response."
         }

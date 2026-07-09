@@ -7,12 +7,21 @@ import SwiftUI
 /// the list that drives it.
 struct ProfileReviewsList: View {
     let viewModel: ProfileViewModel
+    @Environment(ToastCenter.self) private var toasts: ToastCenter?
 
     /// The review the user tapped "Delete" on; drives the confirmation dialog.
     @State private var reviewPendingDeletion: Review?
+    /// The review the user tapped "Edit" on; drives the edit sheet.
+    @State private var reviewToEdit: Review?
 
     var body: some View {
         content
+            .sheet(item: $reviewToEdit) { review in
+                EditReviewScreen(review: review) { updated in
+                    viewModel.applyUpdatedReview(updated)
+                    toasts?.show("Review updated")
+                }
+            }
             .confirmationDialog(
                 "Delete this review?",
                 isPresented: Binding(
@@ -23,7 +32,11 @@ struct ProfileReviewsList: View {
                 presenting: reviewPendingDeletion
             ) { review in
                 Button("Delete", role: .destructive) {
-                    Task { await viewModel.deleteReview(review) }
+                    Task {
+                        if await viewModel.deleteReview(review) {
+                            toasts?.show("Review deleted")
+                        }
+                    }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: { review in
@@ -70,6 +83,7 @@ struct ProfileReviewsList: View {
                 ProfileReviewCard(
                     review: review,
                     isDeleting: viewModel.deletingReviewID == review.id,
+                    onEdit: { reviewToEdit = review },
                     onDelete: { reviewPendingDeletion = review }
                 )
                 .onAppear {
@@ -87,5 +101,6 @@ struct ProfileReviewsList: View {
                     .padding(.vertical, Spacing.md)
             }
         }
+        .padding(.bottom, Spacing.xxxl)
     }
 }

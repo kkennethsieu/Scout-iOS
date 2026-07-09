@@ -34,7 +34,6 @@ struct AuthScreen: View {
                 .padding(.bottom, Spacing.md)
         }
         .padding()
-        .frame(maxWidth:.infinity, maxHeight: .infinity)
         .background(Color.sBackground)
         .overlay(alignment: .topTrailing) {
             if isModal { closeButton }
