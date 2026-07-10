@@ -13,6 +13,16 @@ extension MKCoordinateRegion {
                           radiusKm: centerLocation.distance(from: corner) / 1000)
     }
 
+    /// Builds a region centred on a `SpotRegion` (the inverse of `spotRegion`) —
+    /// used to move a map camera to a resolved place. `radiusKm` is the centre→
+    /// corner distance, so the visible window spans roughly a diameter across.
+    init(_ region: SpotRegion) {
+        self.init(center: CLLocationCoordinate2D(latitude: region.latitude,
+                                                 longitude: region.longitude),
+                  latitudinalMeters: region.radiusKm * 2000,   // radius→diameter, km→m
+                  longitudinalMeters: region.radiusKm * 2000)
+    }
+
     /// A region that frames all `coordinates` with a little padding, clamped to a
     /// minimum span so a single (or tightly-clustered) spot isn't zoomed in absurdly.
     /// `nil` when `coordinates` is empty. Reused wherever a set of spots is fitted

@@ -29,8 +29,15 @@ struct SSearchBar: View {
     var showsClearButton: Bool = false
     /// Focuses the field when the bar appears (editable mode only).
     var autoFocus: Bool = false
+    /// Optional external focus binding so a parent can focus/blur the field
+    /// (e.g. dismiss the keyboard after a selection). Defaults to the bar's own
+    /// internal focus state when not supplied.
+    var focus: FocusState<Bool>.Binding? = nil
 
-    @FocusState private var isFocused: Bool
+    @FocusState private var internalFocus: Bool
+
+    /// The active focus binding — the external one when provided, else internal.
+    private var isFocused: FocusState<Bool>.Binding { focus ?? $internalFocus }
 
     var body: some View {
         HStack(spacing: Spacing.md) {
@@ -53,7 +60,7 @@ struct SSearchBar: View {
             if showsClearButton, !text.isEmpty {
                 Button {
                     text = ""
-                    isFocused = true
+                    isFocused.wrappedValue = true
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 17))
@@ -109,8 +116,8 @@ struct SSearchBar: View {
                 .tint(Color.sAccent)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-                .focused($isFocused)
-                .onAppear { if autoFocus { isFocused = true } }
+                .focused(isFocused)
+                .onAppear { if autoFocus { isFocused.wrappedValue = true } }
         }
     }
 

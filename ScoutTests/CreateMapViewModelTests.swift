@@ -161,4 +161,15 @@ struct CreateMapViewModelTests {
         #expect(vm.needsCurrentLocation == false)
         #expect(vm.pinCoordinate.latitude == here.latitude)
     }
+
+    // MARK: - Place search → move camera
+
+    @Test func moveCameraCentersOnSearchedPlace() {
+        let vm = CreateMapViewModel(entry: .photo(nil), service: MockSpotService())
+        vm.moveCamera(to: SpotRegion(latitude: 48.8566, longitude: 2.3522, radiusKm: 10)) // Paris
+
+        let center = vm.cameraPosition.region?.center
+        #expect(center?.latitude == 48.8566)
+        #expect(center?.longitude == 2.3522)
+    }
 }

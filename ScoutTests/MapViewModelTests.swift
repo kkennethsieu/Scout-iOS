@@ -92,4 +92,15 @@ struct MapViewModelTests {
         #expect(!vm.isFallback)
         #expect(vm.fallbackBannerText == nil)
     }
+
+    // MARK: - Place search → move camera
+
+    @Test func moveCameraCentersOnPlace() {
+        let vm = MapViewModel(service: RecordingSpotService())
+        vm.moveCamera(to: SpotRegion(latitude: 48.8566, longitude: 2.3522, radiusKm: 10))
+
+        let center = vm.cameraPosition.region?.center
+        #expect(center?.latitude == 48.8566)
+        #expect(center?.longitude == 2.3522)
+    }
 }

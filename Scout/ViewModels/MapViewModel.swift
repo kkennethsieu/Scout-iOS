@@ -18,7 +18,6 @@ final class MapViewModel {
 
     private(set) var spots: [SpotSummary] = []
     private(set) var state: LoadState = .idle
-    var searchText: String = ""               // visual only until map search is wired
     var selectedSpotID: String?
     var cameraPosition: MapCameraPosition = .automatic
     /// The user's location (set by the screen), for real preview-card distances.
@@ -164,6 +163,13 @@ final class MapViewModel {
             // Keep the existing pins; let the user retry the search.
             showSearchArea = true
         }
+    }
+
+    /// Jump the camera to a searched place. The camera-idle handler
+    /// (`cameraMoved(to:)`) then reveals "Search this area" so the user can load
+    /// spots for the new region.
+    func moveCamera(to region: SpotRegion) {
+        cameraPosition = .region(MKCoordinateRegion(region))
     }
 
     /// Recenters the camera on the user's coordinate (from `LocationManager`).

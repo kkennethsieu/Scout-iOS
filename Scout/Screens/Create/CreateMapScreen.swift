@@ -85,8 +85,9 @@ struct CreateMapScreen: View {
             SNavHeader(title: "Confirm Location")
             STipBanner(verbatim: viewModel.banner.text)
 
-            HStack {
-                Spacer()
+            PlaceSearchField(bias: location.coordinate, onSelect: { place in
+                viewModel.moveCamera(to: place.region)
+            }) {
                 MapPhotoThumbnail(image: thumbnail)
             }
             .padding(.horizontal, Spacing.lg)

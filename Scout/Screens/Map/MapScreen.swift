@@ -17,9 +17,10 @@ struct MapScreen: View {
                 map
 
                 VStack(spacing: Spacing.sm) {
-                    SSearchBar(text: $viewModel.searchText,
-                               placeholder: "Map area",
-                               showsFilter: false)
+                    PlaceSearchField(placeholder: "Map area",
+                                     bias: location.coordinate) { place in
+                        viewModel.moveCamera(to: place.region)
+                    }
 
                     if viewModel.showSearchArea {
                         SearchAreaButton(isLoading: viewModel.isSearchingArea) {

@@ -219,6 +219,13 @@ final class CreateMapViewModel {
         cameraPosition = .region(Self.region(around: pinCoordinate))
     }
 
+    /// Jump the camera to a searched place. The camera-idle handler
+    /// (`cameraIdled(at:)`) then re-centres the pin, re-queries nearby spots, and
+    /// reverse-geocodes the region text — no extra wiring needed here.
+    func moveCamera(to region: SpotRegion) {
+        cameraPosition = .region(MKCoordinateRegion(region))
+    }
+
     func toggleStyle() {
         isHybrid.toggle()
     }

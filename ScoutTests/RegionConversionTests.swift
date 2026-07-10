@@ -31,6 +31,32 @@ struct RegionConversionTests {
 
         #expect(wide.spotRegion.radiusKm > tight.spotRegion.radiusKm)
     }
+
+    // MARK: - Reverse: SpotRegion → MKCoordinateRegion (moving the camera)
+
+    @Test func regionFromSpotRegionCentersOnPlace() {
+        let place = SpotRegion(latitude: 48.8566, longitude: 2.3522, radiusKm: 10) // Paris
+        let region = MKCoordinateRegion(place)
+
+        #expect(region.center.latitude == 48.8566)
+        #expect(region.center.longitude == 2.3522)
+        #expect(region.span.latitudeDelta > 0)
+    }
+
+    @Test func regionFromSpotRegionRoundTripsRadius() {
+        let place = SpotRegion(latitude: 48.8566, longitude: 2.3522, radiusKm: 10)
+        // Round-trip back through `.spotRegion` lands in the same ballpark (the
+        // corner radius of a diameter-sized box is a bit larger than the input).
+        let back = MKCoordinateRegion(place).spotRegion
+        #expect(back.radiusKm > 8 && back.radiusKm < 18)
+    }
+
+    @Test func largerSpotRegionYieldsLargerSpan() {
+        let center = (lat: 34.0522, lng: -118.2437)
+        let small = MKCoordinateRegion(SpotRegion(latitude: center.lat, longitude: center.lng, radiusKm: 2))
+        let big = MKCoordinateRegion(SpotRegion(latitude: center.lat, longitude: center.lng, radiusKm: 40))
+        #expect(big.span.latitudeDelta > small.span.latitudeDelta)
+    }
 }
 
 /// `SpotSummary` distance helpers (`distanceMiles`/`distanceText` from an origin).

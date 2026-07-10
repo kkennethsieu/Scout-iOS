@@ -1,33 +1,37 @@
 import SwiftUI
 
 /// A clearable pill on the Explore feed showing the place the feed is scoped to
-/// (picked in Search). Tapping the × resets to the default feed.
+/// (picked in Search). Tapping anywhere on the chip resets to the default feed —
+/// the whole pill is the tap target (the × just signals the action), so it's
+/// reliably hittable rather than a lone ~12pt glyph.
 struct ExplorePlaceChip: View {
     let name: String
     let onClear: () -> Void
 
     var body: some View {
-        HStack(spacing: Spacing.xs) {
-            Image(systemName: "mappin")
-                .font(.system(size: 13, weight: .semibold))
+        Button(action: onClear) {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "mappin")
+                    .font(.system(size: 13, weight: .semibold))
 
-            Text(name)
-                .font(.sHeadingS)
-                .lineLimit(1)
+                Text(name)
+                    .font(.sHeadingS)
+                    .lineLimit(1)
 
-            Button(action: onClear) {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .bold))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Clear place filter")
+            .foregroundStyle(Color.sAccent)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(
+                Capsule().fill(Color.sAccentSoft)
+            )
+            .contentShape(Capsule())
         }
-        .foregroundStyle(Color.sAccent)
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .background(
-            Capsule().fill(Color.sAccentSoft)
-        )
+        .buttonStyle(.plain)
+        .accessibilityLabel("Clear \(name) place filter")
+        .accessibilityHint("Shows the default feed")
     }
 }
 

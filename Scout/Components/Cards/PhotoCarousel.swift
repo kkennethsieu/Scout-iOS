@@ -33,6 +33,12 @@ struct PhotoCarousel: View {
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            // Constrain hit-testing to the visible frame. A `scaledToFill` photo
+            // (especially a portrait one) overflows the frame; `.clipped()` hides
+            // that overflow but it still swallows touches outside the card —
+            // stealing taps from the views above/below. This clips the touch area
+            // to what's actually drawn.
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(alignment: .bottom) {
                 if sources.count > 1 {
                     pageDots.padding(.bottom, Spacing.md)

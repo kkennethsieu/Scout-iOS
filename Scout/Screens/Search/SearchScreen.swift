@@ -11,6 +11,11 @@ struct SearchScreen: View {
     @State private var viewModel = SearchViewModel()
     @State private var location = LocationManager()
     @State private var isResolving = false
+    /// Owns the search field's focus so we can resign it *before* dismissing.
+    /// Popping this screen while the field is still first responder orphans
+    /// UIKit's full-screen editing overlay (`UIEditingOverlayGestureView`) in the
+    /// text-effects window, which then swallows taps on the screen we return to.
+    @FocusState private var searchFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
     /// Called with the resolved place when the user taps a place suggestion.
@@ -29,9 +34,10 @@ struct SearchScreen: View {
                     placeholder: "Search places...",
                     showsFilter: false,
                     showsBackButton: true,
-                    onBack: { dismiss() },
+                    onBack: { close() },
                     showsClearButton: true,
-                    autoFocus: true
+                    autoFocus: true,
+                    focus: $searchFocused
                 )
 
                 ScrollView {
@@ -113,6 +119,7 @@ struct SearchScreen: View {
                 LazyVStack(spacing: Spacing.lg) {
                     ForEach(viewModel.spotResults) { spot in
                         Button {
+                            searchFocused = false   // resign before the screen pops
                             viewModel.commitSearch(spot.name)
                             onSelectSpot(spot)
                         } label: {
@@ -148,6 +155,9 @@ struct SearchScreen: View {
     private func select(_ completion: MKLocalSearchCompletion) {
         guard !isResolving else { return }
         isResolving = true
+        // Resign the field now (before we pop) so UIKit tears down its editing
+        // overlay cleanly; the async resolve gives it time to complete.
+        searchFocused = false
         Task {
             defer { isResolving = false }
             if let place = await viewModel.selectPlace(completion) {
@@ -155,6 +165,12 @@ struct SearchScreen: View {
                 dismiss()
             }
         }
+    }
+
+    /// Blurs the field before popping — see `searchFocused` for why order matters.
+    private func close() {
+        searchFocused = false
+        dismiss()
     }
 }
 
