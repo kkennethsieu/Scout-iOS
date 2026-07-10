@@ -42,4 +42,15 @@ enum AppServices {
     static var legal: LegalService {
         LiveLegalService()
     }
+
+    static var appConfig: AppConfigService {
+        #if DEBUG
+        // Flip `DebugFlags.forcedUpdateConfig` to exercise the update states
+        // locally without a backend. `nil` → the live `/config` endpoint.
+        if let forced = DebugFlags.forcedUpdateConfig {
+            return MockAppConfigService(config: forced)
+        }
+        #endif
+        return LiveAppConfigService()
+    }
 }

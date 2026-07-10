@@ -9,6 +9,13 @@ struct MainTabView: View {
     @State private var toasts = ToastCenter()
 
     @Environment(AuthService.self) private var auth
+    @Environment(UpdateChecker.self) private var updateChecker
+    @Environment(\.openURL) private var openURL
+
+    /// Set when a soft "update available" nudge should show; also the URL its
+    /// "Update" button opens. Shown at most once per session.
+    @State private var updatePromptURL: URL?
+    @State private var didShowUpdatePrompt = false
 
     private var selection: MainTab { router.selection }
 
@@ -32,6 +39,25 @@ struct MainTabView: View {
                 get: { toasts.message },
                 set: { if $0 == nil { toasts.dismiss() } }
             ))
+            // Soft "update available" nudge (dismissible; browsing continues).
+            .sConfirmationDialog(isPresented: Binding(
+                get: { updatePromptURL != nil },
+                set: { if !$0 { updatePromptURL = nil } }
+            )) {
+                SConfirmationDialog(
+                    title: "Update available",
+                    message: "A new version of Scout is available.",
+                    primaryTitle: "Update",
+                    primaryAction: {
+                        if let url = updatePromptURL { openURL(url) }
+                        updatePromptURL = nil
+                    },
+                    secondaryTitle: "Not now",
+                    secondaryAction: { updatePromptURL = nil }
+                )
+            }
+            .task { showOptionalUpdateIfNeeded() }
+            .onChange(of: updateChecker.state) { _, _ in showOptionalUpdateIfNeeded() }
             .environment(tabBarVisibility)
             .environment(router)
             .environment(savedStore)
@@ -79,6 +105,14 @@ struct MainTabView: View {
             tabContent(.saved) { SavedScreen(isActive: selection == .saved) }
             tabContent(.profile) { ProfileScreen(isActive: selection == .profile) }
         }
+    }
+
+    /// Shows the optional-update nudge once per session, when the checker reports
+    /// a non-blocking new version.
+    private func showOptionalUpdateIfNeeded() {
+        guard !didShowUpdatePrompt, case .optional(let url) = updateChecker.state else { return }
+        didShowUpdatePrompt = true
+        updatePromptURL = url
     }
 
     @ViewBuilder

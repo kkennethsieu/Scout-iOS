@@ -126,7 +126,7 @@ struct SettingsScreen: View {
     }
 
     private var versionFooter: some View {
-        Text("Scout 1.0 (1)")
+        Text("Scout \(AppVersion.current) (\(AppVersion.build))")
             .font(.sBodyS)
             .foregroundStyle(Color.sTextTertiary)
             .frame(maxWidth: .infinity)
